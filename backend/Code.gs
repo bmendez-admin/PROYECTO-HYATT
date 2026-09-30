@@ -15,14 +15,12 @@ function hoja() {
 function lockTest(id) {
   var lock = LockService.getScriptLock();
   var t0 = Date.now();
-  if (!lock.tryLock(10000)) return { ok: false, code: 'E_CONFLICT' };
+  if (!lock.tryLock(30000)) return { ok: false, code: 'E_CONFLICT' };
   try {
     var s = hoja();
     var v = Number(s.getRange('A1').getValue()) + 1;
-    Utilities.sleep(150);
     s.getRange('A1').setValue(v);
     s.appendRow([new Date(), id, v]);
-    SpreadsheetApp.flush();
     return { ok: true, valor: v, espera_ms: Date.now() - t0 };
   } finally {
     lock.releaseLock();
