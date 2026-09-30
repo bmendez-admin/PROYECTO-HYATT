@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Spike S1</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            margin: 24px;
+            max-width: 860px
+        }
+
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 12px;
+            box-sizing: border-box
+        }
+
+        button {
+            padding: 10px 14px;
+            margin: 0 8px 8px 0;
+            cursor: pointer
+        }
+
+        pre {
+            background: #111;
+            color: #8f8;
+            padding: 12px;
+            min-height: 260px;
+            white-space: pre-wrap
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Spike S1</h1>
+    <input id="url" placeholder="URL del web app (termina en /exec)">
+    <div>
+        <button id="b-get">1. GET ping</button>
+        <button id="b-post">1. POST ping</button>
+        <button id="b-lock">3. Lock x10</button>
+        <button id="b-poll">4. Polling 3 clientes</button>
+        <button id="b-latido">5. Latido chef1 y chef2</button>
+        <button id="b-vivos">5. Consultar latido</button>
+        <button id="b-limpiar">Limpiar</button>
+    </div>
+    <pre id="log"></pre>
+    <script type="module">
+        const $ = (id) => document.getElementById(id);
+        const log = (t) => {$('log').textContent += t + '\n';};
+        const url = () => $('url').value.trim();
+        const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+
+        async function post(cuerpo) {
+            const t0 = performance.now();
+            const r = await fetch(url(), {
+                method: 'POST',
+                headers: {'Content-Type': 'text/plain;charset=utf-8'},
+                body: JSON.stringify(cuerpo)
+            });
+            const j = await r.json();
+            return {j, ms: Math.round(performance.now() - t0)};
+        }
+
+        async function get() {
+            const t0 = performance.now();
+            const r = await fetch(url() + '?action=ping');
+            const j = await r.json();
+            return {j, ms: Math.round(performance.now() - t0)};
+        }
+
+        async function seguro(nombre, fn) {
+            try {
+                await fn();
+            } catch (e) {
+                log(nombre + ' ERROR: ' + (e && e.message ? e.message : e));
+            }
+        }
+
+        $('b-get').onclick = () => seguro('GET', async () => {
+            const r = await get();
+            log('GET ' + JSON.stringify(r.j) + ' ' + r.ms + ' ms');
+        });
+
+        $('b-post').onclick = () => seguro('POST', async () => {
+            const r = await post({action: 'ping'});
+            log('POST ' + JSON.stringify(r.j) + ' ' + r.ms + ' ms');
+        });
+
+        $('b-lock').onclick = () => seguro('LOCK', async () => {
+            log('Lock: 10 solicitudes simultaneas...');
+            const t0 = performance.now();
+            const tareas = Array.from({length: 10}, (_, i) =>
+                post({action: 'lock_test', request_id: 'r' + Date.now() + '_' + i})
+            );
+            const res = await Promise.all(tareas);
+            const ok = res.filter((x) => x.j.ok);
+            const valores = ok.map((x) => x.j.valor).sort((a, b) => a - b);
+            const unicos = new Set(valores).size === valores.length;
+            const consecutivos = valores.every((v, i) => i === 0 || v === valores[i - 1] + 1);
+            log('Exitosas: ' + ok.length + '/10 | valores: ' + valores.join(','));
+            log('Sin repetidos: ' + unicos + ' | Consecutivos: ' + consecutivos);
+            log('Fallidas: ' + res.filter((x) => !x.j.ok).map((x) => x.j.code).join(',') + ' | total ' + Math.round(performance.now() - t0) + ' ms');
+        });
+
+        $('b-poll').onclick = () => seguro('POLL', async () => {
+            const rondas = 12;
+            const latencias = [];
+            let errores = 0;
+            log('Polling: 3 clientes, cada 5 s, ' + rondas + ' rondas (60 s)...');
+            const cliente = async () => {
+                for (let i = 0; i < rondas; i++) {
+                    try {
+                        const r = await post({action: 'lectura'});
+                        if (r.j.ok) latencias.push(r.ms); else errores++;
+                    } catch (e) {
+                        errores++;
+                    }
+                    await espera(5000);
+                }
+            };
+            await Promise.all([cliente(), cliente(), cliente()]);
+            latencias.sort((a, b) => a - b);
+            const mediana = latencias[Math.floor(latencias.length / 2)] || 0;
+            const maxima = latencias[latencias.length - 1] || 0;
+            log('Solicitudes OK: ' + latencias.length + ' | errores: ' + errores);
+            log('Latencia mediana: ' + mediana + ' ms | maxima: ' + maxima + ' ms');
+        });
+
+        $('b-latido').onclick = () => seguro('LATIDO', async () => {
+            const a = await post({action: 'latido', chef: 'chef1'});
+            const b = await post({action: 'latido', chef: 'chef2'});
+            log('Latido enviado. Vivos: ' + b.j.vivos.join(',') + ' (' + a.ms + '/' + b.ms + ' ms)');
+        });
+
+        $('b-vivos').onclick = () => seguro('VIVOS', async () => {
+            const r = await post({action: 'latido', chef: ''});
+            log('Vivos ahora: [' + r.j.vivos.join(',') + ']');
+        });
+
+        $('b-limpiar').onclick = () => {$('log').textContent = '';};
+    </script>
+</body>
+
+</html>
