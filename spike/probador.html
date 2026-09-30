@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Probador API</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:24px;max-width:900px}
+input,select,textarea{width:100%;padding:8px;margin-bottom:10px;box-sizing:border-box;font-family:inherit}
+textarea{height:150px;font-family:ui-monospace,monospace}
+button{padding:10px 14px;margin:0 8px 8px 0;cursor:pointer}
+pre{background:#111;color:#8f8;padding:12px;min-height:260px;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<h1>Probador API</h1>
+<input id="url" placeholder="URL del web app (termina en /exec)">
+<select id="accion">
+<option value="ping">ping</option>
+<option value="catalogo">catalogo (kiosco)</option>
+<option value="validar_cuarto">validar_cuarto (kiosco)</option>
+<option value="crear_pedido">crear_pedido (kiosco)</option>
+<option value="cola">cola (kds)</option>
+<option value="estado">estado (estado)</option>
+</select>
+<input id="rol" placeholder="rol">
+<input id="venue" placeholder="venue_id" value="bites">
+<input id="token" type="password" placeholder="token del rol y la sede">
+<textarea id="extra">{}</textarea>
+<div>
+<button id="enviar">Enviar</button>
+<button id="enviar5">Enviar 5 a la vez</button>
+<button id="limpiar">Limpiar</button>
+</div>
+<pre id="log"></pre>
+<script type="module">
+const $ = (id) => document.getElementById(id);
+const log = (texto) => { $('log').textContent += texto + '\n'; };
+
+const plantillas = {
+  ping: { rol: '', extra: {} },
+  catalogo: { rol: 'kiosco', extra: {} },
+  validar_cuarto: { rol: 'kiosco', extra: { cuarto: '101' } },
+  crear_pedido: {
+    rol: 'kiosco',
+    extra: {
+      request_id: 'auto',
+      huesped_id: 'H101',
+      items: [{ producto_id: 'bites-001', cantidad: 2 }, { producto_id: 'bites-005', cantidad: 1 }]
+    }
+  },
+  cola: { rol: 'kds', extra: {} },
+  estado: { rol: 'estado', extra: {} }
+};
+
+function aplicarPlantilla() {
+  const plantilla = plantillas[$('accion').value];
+  $('rol').value = plantilla.rol;
+  $('extra').value = JSON.stringify(plantilla.extra, null, 2);
+}
+
+function nuevoRequestId() {
+  return 'req' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+function construirCuerpo() {
+  const extra = JSON.parse($('extra').value || '{}');
+  if (extra.request_id === 'auto') extra.request_id = nuevoRequestId();
+  const cuerpo = { action: $('accion').value, venue_id: $('venue').value.trim(), ...extra };
+  if ($('rol').value.trim()) cuerpo.rol = $('rol').value.trim();
+  if ($('token').value.trim()) cuerpo.token = $('token').value.trim();
+  return cuerpo;
+}
+
+async function enviar(etiqueta) {
+  const cuerpo = construirCuerpo();
+  const visible = { ...cuerpo };
+  if (visible.token) visible.token = '***';
+  const t0 = performance.now();
+  try {
+    const r = await fetch($('url').value.trim(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(cuerpo)
+    });
+    const texto = await r.text();
+    log(etiqueta + ' ' + JSON.stringify(visible) + '\n   <- ' + texto + ' (' + Math.round(performance.now() - t0) + ' ms)');
+  } catch (error) {
+    log(etiqueta + ' ERROR: ' + (error && error.message ? error.message : error));
+  }
+}
+
+$('accion').onchange = aplicarPlantilla;
+$('enviar').onclick = () => enviar('#1');
+$('enviar5').onclick = () => Promise.all([1, 2, 3, 4, 5].map((n) => enviar('#' + n)));
+$('limpiar').onclick = () => { $('log').textContent = ''; };
+aplicarPlantilla();
+</script>
+</body>
+</html>
