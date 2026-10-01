@@ -1,0 +1,67 @@
+function setup() {
+  const libro = SpreadsheetApp.getActiveSpreadsheet();
+  Object.keys(ENCABEZADOS).forEach(nombre => prepararHoja(libro, nombre));
+  sembrarDatosDemo();
+  Logger.log(JSON.stringify(verificarEsquema(), null, 2));
+}
+
+function prepararHoja(libro, nombre) {
+  const encabezados = ENCABEZADOS[nombre];
+  let hoja = libro.getSheetByName(nombre);
+  if (!hoja) hoja = libro.insertSheet(nombre);
+  if (hoja.getLastRow() === 0) {
+    hoja.getRange(1, 1, 1, encabezados.length).setValues([encabezados]);
+  } else if (!encabezadosCoinciden(hoja, encabezados)) {
+    throw new Error('Los encabezados de ' + nombre + ' no coinciden con el esquema');
+  }
+  aplicarFormato(hoja, nombre);
+}
+
+function encabezadosCoinciden(hoja, encabezados) {
+  return hoja
+    .getRange(1, 1, 1, encabezados.length)
+    .getValues()[0]
+    .every((valor, i) => valor === encabezados[i]);
+}
+
+function aplicarFormato(hoja, nombre) {
+  const encabezados = ENCABEZADOS[nombre];
+  if (hoja.getMaxRows() < 2) hoja.insertRowAfter(1);
+  const filasDeDatos = hoja.getMaxRows() - 1;
+  hoja.getRange(1, 1, 1, encabezados.length).setFontWeight('bold').setBackground('#ece6f1');
+  hoja.setFrozenRows(1);
+  (COLUMNAS_TEXTO[nombre] || []).forEach(columna => {
+    hoja.getRange(2, encabezados.indexOf(columna) + 1, filasDeDatos, 1).setNumberFormat('@');
+  });
+  (COLUMNAS_FECHA[nombre] || []).forEach(columna => {
+    hoja.getRange(2, encabezados.indexOf(columna) + 1, filasDeDatos, 1).setNumberFormat('yyyy-mm-dd hh:mm:ss');
+  });
+}
+
+function sembrar(nombre, objetos) {
+  const hoja = obtenerHoja(nombre);
+  if (hoja.getLastRow() > 1) return;
+  const encabezados = ENCABEZADOS[nombre];
+  const filas = objetos.map(objeto => encabezados.map(columna => (columna in objeto ? objeto[columna] : '')));
+  hoja.getRange(2, 1, filas.length, encabezados.length).setValues(filas);
+}
+
+function sembrarDatosDemo() {
+  const productos = productosBites();
+  sembrar(HOJAS.VENUES, VENUES_DEMO);
+  sembrar(HOJAS.DB, productos);
+  sembrar(HOJAS.HUESPEDES, generarHuespedes());
+  sembrar(HOJAS.CHEFS, CHEFS_DEMO);
+  sembrar(HOJAS.INVENTARIO, movimientosIniciales(productos));
+}
+
+function verificarEsquema() {
+  return Object.keys(ENCABEZADOS).map(nombre => {
+    const hoja = obtenerHoja(nombre);
+    return {
+      hoja: nombre,
+      filas_de_datos: Math.max(0, hoja.getLastRow() - 1),
+      encabezados_ok: encabezadosCoinciden(hoja, ENCABEZADOS[nombre])
+    };
+  });
+}
