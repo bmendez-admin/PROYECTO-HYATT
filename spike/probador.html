@@ -21,6 +21,11 @@ pre{background:#111;color:#8f8;padding:12px;min-height:260px;white-space:pre-wra
 <option value="validar_cuarto">validar_cuarto (kiosco)</option>
 <option value="crear_pedido">crear_pedido (kiosco)</option>
 <option value="cola">cola (kds)</option>
+<option value="iniciar_turno">iniciar_turno (kds)</option>
+<option value="pausar_turno">pausar_turno (kds)</option>
+<option value="reanudar_turno">reanudar_turno (kds)</option>
+<option value="cerrar_turno">cerrar_turno (kds)</option>
+<option value="cambiar_estatus">cambiar_estatus (kds)</option>
 <option value="estado">estado (estado)</option>
 </select>
 <input id="rol" placeholder="rol">
@@ -50,6 +55,14 @@ const plantillas = {
     }
   },
   cola: { rol: 'kds', extra: {} },
+  iniciar_turno: { rol: 'kds', extra: { chef_id: 'chef-01' } },
+  pausar_turno: { rol: 'kds', extra: { chef_id: 'chef-01' } },
+  reanudar_turno: { rol: 'kds', extra: { chef_id: 'chef-01' } },
+  cerrar_turno: { rol: 'kds', extra: { chef_id: 'chef-01' } },
+  cambiar_estatus: {
+    rol: 'kds',
+    extra: { pedido_id: 'bites-20261001-002', transicion: 'tomar', chef_id: 'chef-01' }
+  },
   estado: { rol: 'estado', extra: {} }
 };
 

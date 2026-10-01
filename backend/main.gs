@@ -19,6 +19,26 @@ const ACCIONES = {
     roles: ['kds'],
     ejecutar: (cuerpo, contexto) => consultarCola(cuerpo, contexto)
   },
+  iniciar_turno: {
+    roles: ['kds'],
+    ejecutar: (cuerpo, contexto) => iniciarTurno(cuerpo, contexto)
+  },
+  pausar_turno: {
+    roles: ['kds'],
+    ejecutar: (cuerpo, contexto) => pausarTurno(cuerpo, contexto)
+  },
+  reanudar_turno: {
+    roles: ['kds'],
+    ejecutar: (cuerpo, contexto) => reanudarTurno(cuerpo, contexto)
+  },
+  cerrar_turno: {
+    roles: ['kds'],
+    ejecutar: (cuerpo, contexto) => cerrarTurno(cuerpo, contexto)
+  },
+  cambiar_estatus: {
+    roles: ['kds'],
+    ejecutar: (cuerpo, contexto) => cambiarEstatus(cuerpo, contexto)
+  },
   estado: {
     roles: ['estado'],
     ejecutar: (cuerpo, contexto) => consultarEstado(cuerpo, contexto)

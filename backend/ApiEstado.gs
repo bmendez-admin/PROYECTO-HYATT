@@ -8,7 +8,8 @@ function construirEstado(venueId) {
   const prefijo = venueId + '-' + diaOperativo(ahora, venue) + '-';
   const limite = ahora.getTime() - LISTO_VISIBLE_MIN * 60000;
   const pedidos = pedidosPorEstatus(venueId, [ESTATUS.PENDIENTE, ESTATUS.EN_PREPARACION, ESTATUS.COMPLETO])
-    .filter(p => String(p.pedido_id).indexOf(prefijo) === 0);
+    .filter(p => String(p.pedido_id).indexOf(prefijo) === 0)
+    .filter(p => !pedidoVencido(p, ahora));
 
   const enProceso = pedidos
     .filter(p => p.estatus !== ESTATUS.COMPLETO)

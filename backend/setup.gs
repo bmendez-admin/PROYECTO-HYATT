@@ -9,12 +9,26 @@ function prepararHoja(libro, nombre) {
   const encabezados = ENCABEZADOS[nombre];
   let hoja = libro.getSheetByName(nombre);
   if (!hoja) hoja = libro.insertSheet(nombre);
+  if (hoja.getMaxColumns() < encabezados.length) {
+    hoja.insertColumnsAfter(hoja.getMaxColumns(), encabezados.length - hoja.getMaxColumns());
+  }
   if (hoja.getLastRow() === 0) {
     hoja.getRange(1, 1, 1, encabezados.length).setValues([encabezados]);
-  } else if (!encabezadosCoinciden(hoja, encabezados)) {
+  } else if (!encabezadosCoinciden(hoja, encabezados) && !completarEncabezados(hoja, encabezados)) {
     throw new Error('Los encabezados de ' + nombre + ' no coinciden con el esquema');
   }
   aplicarFormato(hoja, nombre);
+}
+
+function completarEncabezados(hoja, encabezados) {
+  const actuales = hoja.getRange(1, 1, 1, encabezados.length).getValues()[0];
+  const primerVacio = actuales.indexOf('');
+  if (primerVacio === -1) return false;
+  const prefijoOk = actuales.slice(0, primerVacio).every((valor, i) => valor === encabezados[i]);
+  const restoVacio = actuales.slice(primerVacio).every(valor => valor === '');
+  if (!prefijoOk || !restoVacio) return false;
+  hoja.getRange(1, 1, 1, encabezados.length).setValues([encabezados]);
+  return true;
 }
 
 function encabezadosCoinciden(hoja, encabezados) {
@@ -64,4 +78,22 @@ function verificarEsquema() {
       encabezados_ok: encabezadosCoinciden(hoja, ENCABEZADOS[nombre])
     };
   });
+}
+
+function limpiarDatos(nombre) {
+  const hoja = obtenerHoja(nombre);
+  const filas = hoja.getLastRow() - 1;
+  if (filas > 0) hoja.getRange(2, 1, filas, ENCABEZADOS[nombre].length).clearContent();
+}
+
+function reiniciarDemo() {
+  conLock(() => {
+    [HOJAS.KIOSCO, HOJAS.PEDIDO_ITEMS, HOJAS.KDS, HOJAS.TURNOS, HOJAS.REABASTO, HOJAS.INVENTARIO, HOJAS.DB].forEach(limpiarDatos);
+    sembrarDatosDemo();
+  });
+  leerTabla(HOJAS.VENUES).forEach(venue => {
+    invalidarCache(venue.venue_id);
+    CacheService.getScriptCache().removeAll(['cuarto_bloqueo_' + venue.venue_id, 'cuarto_fallos_' + venue.venue_id]);
+  });
+  Logger.log(JSON.stringify(verificarEsquema(), null, 2));
 }

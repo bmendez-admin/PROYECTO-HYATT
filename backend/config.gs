@@ -22,7 +22,7 @@ const ENCABEZADOS = Object.freeze({
   INVENTARIO: ['mov_id', 'venue_id', 'producto_id', 'tipo', 'cantidad', 'stock_resultante', 'hora', 'responsable'],
   REABASTO: ['solicitud_id', 'venue_id', 'producto_id', 'cantidad', 'chef_id', 'hora_solicitud', 'estatus', 'atendido_por', 'hora_atencion'],
   CHEFS: ['chef_id', 'nombre', 'activo'],
-  TURNOS: ['turno_id', 'venue_id', 'chef_id', 'hora_inicio', 'hora_fin', 'estado', 'minutos_pausa', 'motivo_cierre'],
+  TURNOS: ['turno_id', 'venue_id', 'chef_id', 'hora_inicio', 'hora_fin', 'estado', 'minutos_pausa', 'motivo_cierre', 'hora_pausa'],
   LOG: ['timestamp', 'accion', 'rol', 'venue_id', 'codigo_error', 'detalle_interno']
 });
 
@@ -45,7 +45,7 @@ const COLUMNAS_FECHA = Object.freeze({
   KDS: ['hora_llegada', 'hora_en_preparacion', 'hora_completo', 'hora_recibido', 'hora_cancelado'],
   INVENTARIO: ['hora'],
   REABASTO: ['hora_solicitud', 'hora_atencion'],
-  TURNOS: ['hora_inicio', 'hora_fin'],
+  TURNOS: ['hora_inicio', 'hora_fin', 'hora_pausa'],
   LOG: ['timestamp']
 });
 
@@ -71,6 +71,19 @@ const LIMITES_PEDIDO = Object.freeze({
   maxLineas: 15
 });
 
+const TURNO = Object.freeze({
+  ACTIVO: 'activo',
+  PAUSA: 'pausa',
+  CERRADO: 'cerrado'
+});
+
+const MOTIVOS_CANCELACION = Object.freeze(['sin_ingredientes', 'pedido_duplicado', 'huesped_cancelo', 'otro']);
+const MOTIVO_CIERRE_AUTOMATICO = 'cierre_automatico';
+const MOTIVO_TURNO_MANUAL = 'manual';
+const MOTIVO_TURNO_VENCIDO = 'vencido';
+
+const PEDIDO_VENCE_HORAS = 12;
+const REVERTIR_SEG = 60;
 const LISTO_VISIBLE_MIN = 10;
 const CACHE_LECTURA_SEG = 3;
 const LOCK_ESPERA_MS = 30000;
