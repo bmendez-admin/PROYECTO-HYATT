@@ -12,6 +12,25 @@ function conflicto(razon, extra) {
   return new ErrorApi('E_CONFLICT', razon, Object.assign({ razon: razon }, extra || {}));
 }
 
+function transicionYaAplicada(transicion, pedido, chefId, motivo) {
+  const delChef = pedido.chef_id === chefId;
+  switch (transicion) {
+    case 'tomar':
+    case 'revertir':
+      return pedido.estatus === ESTATUS.EN_PREPARACION && delChef;
+    case 'completar':
+      return pedido.estatus === ESTATUS.COMPLETO && delChef;
+    case 'recibir':
+      return pedido.estatus === ESTATUS.RECIBIDO;
+    case 'cancelar':
+      return pedido.estatus === ESTATUS.CANCELADO && pedido.motivo_cancelacion === motivo;
+    case 'liberar':
+      return pedido.estatus === ESTATUS.PENDIENTE;
+    default:
+      return false;
+  }
+}
+
 function devolverStock(venueId, pedidoIds, ahora) {
   if (!pedidoIds.length) return;
   const conjunto = new Set(pedidoIds);
@@ -127,6 +146,9 @@ function aplicarTransicion(venueId, pedidoId, transicion, chefId, motivo) {
   const estatus = pedido.estatus;
   const delChef = pedido.chef_id === chefId;
   const estatusActual = { estatus: estatus };
+  if (transicionYaAplicada(transicion, pedido, chefId, motivo)) {
+    return { pedido_id: pedidoId, estatus: estatus, chef_id: pedido.chef_id || '', repetido: true };
+  }
 
   if (transicion === 'tomar') {
     if (estatus !== ESTATUS.PENDIENTE) throw conflicto('estatus', estatusActual);
@@ -167,5 +189,5 @@ function aplicarTransicion(venueId, pedidoId, transicion, chefId, motivo) {
   escribirFila(HOJAS.KDS, registro.fila, pedido);
   if (transicion === 'cancelar') devolverStock(venueId, [pedidoId], ahora);
   invalidarCache(venueId);
-  return { pedido_id: pedidoId, estatus: pedido.estatus, chef_id: pedido.chef_id || '' };
+    return { pedido_id: pedidoId, estatus: pedido.estatus, chef_id: pedido.chef_id || '', repetido: false };
 }
