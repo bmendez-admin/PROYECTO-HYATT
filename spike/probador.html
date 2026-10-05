@@ -9,6 +9,7 @@ body{font-family:system-ui,sans-serif;margin:24px;max-width:900px}
 input,select,textarea{width:100%;padding:8px;margin-bottom:10px;box-sizing:border-box;font-family:inherit}
 textarea{height:150px;font-family:ui-monospace,monospace}
 button{padding:10px 14px;margin:0 8px 8px 0;cursor:pointer}
+#resumen{margin:0 0 8px;font-size:14px;color:#444}
 pre{background:#111;color:#8f8;padding:12px;min-height:260px;white-space:pre-wrap}
 </style>
 </head>
@@ -40,10 +41,14 @@ pre{background:#111;color:#8f8;padding:12px;min-height:260px;white-space:pre-wra
 <button id="enviar5">Enviar 5 a la vez</button>
 <button id="limpiar">Limpiar</button>
 </div>
+<p id="resumen"></p>
 <pre id="log"></pre>
 <script type="module">
 const $ = (id) => document.getElementById(id);
 const log = (texto) => { $('log').textContent += texto + '\n'; };
+
+const ESPERAS_REINTENTO_MS = [1000, 2000, 4000];
+const estadisticas = { envios: 0, conReintento: 0, reintentos: 0 };
 
 const plantillas = {
   ping: { rol: '', extra: {} },
@@ -97,22 +102,59 @@ function construirCuerpo() {
   return cuerpo;
 }
 
+const esperar = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function esRespuestaValida(texto) {
+  try {
+    return JSON.parse(texto).code !== 'E_METHOD';
+  } catch (error) {
+    return false;
+  }
+}
+
+async function solicitar(cuerpo) {
+  const respuesta = await fetch($('url').value.trim(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(cuerpo)
+  });
+  return respuesta.text();
+}
+
+async function enviarConReintentos(cuerpo) {
+  let falla = '';
+  for (let intento = 0; intento <= ESPERAS_REINTENTO_MS.length; intento++) {
+    if (intento > 0) await esperar(ESPERAS_REINTENTO_MS[intento - 1]);
+    try {
+      const texto = await solicitar(cuerpo);
+      if (esRespuestaValida(texto)) return { texto, reintentos: intento };
+      falla = 'respuesta no válida (HTML de Google o E_METHOD)';
+    } catch (error) {
+      falla = error && error.message ? error.message : String(error);
+    }
+  }
+  return { error: falla, reintentos: ESPERAS_REINTENTO_MS.length };
+}
+
+function registrarEstadistica(reintentos) {
+  estadisticas.envios++;
+  if (reintentos) estadisticas.conReintento++;
+  estadisticas.reintentos += reintentos;
+  $('resumen').textContent =
+    'Envíos: ' + estadisticas.envios +
+    ' · con reintento: ' + estadisticas.conReintento +
+    ' · reintentos totales: ' + estadisticas.reintentos;
+}
+
 async function enviar(etiqueta) {
   const cuerpo = construirCuerpo();
   const visible = { ...cuerpo };
   if (visible.token) visible.token = '***';
-  const t0 = performance.now();
-  try {
-    const r = await fetch($('url').value.trim(), {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(cuerpo)
-    });
-    const texto = await r.text();
-    log(etiqueta + ' ' + JSON.stringify(visible) + '\n   <- ' + texto + ' (' + Math.round(performance.now() - t0) + ' ms)');
-  } catch (error) {
-    log(etiqueta + ' ERROR: ' + (error && error.message ? error.message : error));
-  }
+  const inicio = performance.now();
+  const { texto, error, reintentos } = await enviarConReintentos(cuerpo);
+  registrarEstadistica(reintentos);
+  const detalle = ' (' + Math.round(performance.now() - inicio) + ' ms, reintentos: ' + reintentos + ')';
+  log(etiqueta + ' ' + JSON.stringify(visible) + '\n   <- ' + (error ? 'ERROR: ' + error : texto) + detalle);
 }
 
 $('accion').onchange = aplicarPlantilla;
