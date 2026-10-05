@@ -86,7 +86,12 @@ function conCache(clave, segundos, generar) {
 }
 
 function invalidarCache(venueId) {
-  CacheService.getScriptCache().removeAll(['catalogo_' + venueId, 'cola_' + venueId, 'estado_' + venueId]);
+  CacheService.getScriptCache().removeAll([
+    'catalogo_' + venueId,
+    'cola_' + venueId,
+    'estado_' + venueId,
+    'inventario_' + venueId
+  ]);
 }
 
 function conLock(funcion) {

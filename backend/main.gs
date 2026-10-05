@@ -39,6 +39,18 @@ const ACCIONES = {
     roles: ['kds'],
     ejecutar: (cuerpo, contexto) => cambiarEstatus(cuerpo, contexto)
   },
+  inventario: {
+    roles: ['kds'],
+    ejecutar: (cuerpo, contexto) => consultarInventario(cuerpo, contexto)
+  },
+  registrar_relleno: {
+    roles: ['kds'],
+    ejecutar: (cuerpo, contexto) => registrarRelleno(cuerpo, contexto)
+  },
+  solicitar_reabasto: {
+    roles: ['kds'],
+    ejecutar: (cuerpo, contexto) => solicitarReabasto(cuerpo, contexto)
+  },
   estado: {
     roles: ['estado'],
     ejecutar: (cuerpo, contexto) => consultarEstado(cuerpo, contexto)
@@ -105,5 +117,5 @@ function doPost(e) {
 }
 
 function doGet() {
-  return procesar(JSON.stringify({ action: 'ping' }));
+  return respuesta({ ok: false, code: 'E_METHOD' });
 }

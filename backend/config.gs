@@ -77,6 +77,18 @@ const TURNO = Object.freeze({
   CERRADO: 'cerrado'
 });
 
+const ESTADO_STOCK = Object.freeze({
+  OK: 'ok',
+  BAJO: 'bajo',
+  AGOTADO: 'agotado'
+});
+
+const REABASTO_ESTATUS = Object.freeze({
+  PENDIENTE: 'pendiente'
+});
+
+const CANTIDAD_MAX_REPOSICION = 200;
+
 const MOTIVOS_CANCELACION = Object.freeze(['sin_ingredientes', 'pedido_duplicado', 'huesped_cancelo', 'otro']);
 const MOTIVO_CIERRE_AUTOMATICO = 'cierre_automatico';
 const MOTIVO_TURNO_MANUAL = 'manual';

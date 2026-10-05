@@ -26,6 +26,9 @@ pre{background:#111;color:#8f8;padding:12px;min-height:260px;white-space:pre-wra
 <option value="reanudar_turno">reanudar_turno (kds)</option>
 <option value="cerrar_turno">cerrar_turno (kds)</option>
 <option value="cambiar_estatus">cambiar_estatus (kds)</option>
+<option value="inventario">inventario (kds)</option>
+<option value="registrar_relleno">registrar_relleno (kds)</option>
+<option value="solicitar_reabasto">solicitar_reabasto (kds)</option>
 <option value="estado">estado (estado)</option>
 </select>
 <input id="rol" placeholder="rol">
@@ -62,6 +65,15 @@ const plantillas = {
   cambiar_estatus: {
     rol: 'kds',
     extra: { pedido_id: 'bites-20261001-002', transicion: 'tomar', chef_id: 'chef-01' }
+  },
+  inventario: { rol: 'kds', extra: {} },
+  registrar_relleno: {
+    rol: 'kds',
+    extra: { request_id: 'auto', producto_id: 'bites-004', cantidad: 10, chef_id: 'chef-01' }
+  },
+  solicitar_reabasto: {
+    rol: 'kds',
+    extra: { request_id: 'auto', producto_id: 'bites-004', cantidad: 20, chef_id: 'chef-01' }
   },
   estado: { rol: 'estado', extra: {} }
 };
