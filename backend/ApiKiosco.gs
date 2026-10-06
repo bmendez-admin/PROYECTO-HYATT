@@ -41,8 +41,11 @@ function validarCuarto(cuerpo, contexto) {
   const claveBloqueo = 'cuarto_bloqueo_' + contexto.venueId;
   const claveFallos = 'cuarto_fallos_' + contexto.venueId;
   if (cache.get(claveBloqueo)) throw new ErrorApi('E_RATE', 'cuarto bloqueado');
+  const edificio = validarTexto(typeof cuerpo.edificio === 'string' ? cuerpo.edificio : '', 3, /^[A-Za-z0-9]{1,3}$/).toUpperCase();
   const cuarto = validarTexto(typeof cuerpo.cuarto === 'string' ? cuerpo.cuarto : '', 4, /^\d{3,4}$/);
-  const huesped = leerTabla(HOJAS.HUESPEDES).find(h => String(h.cuarto) === cuarto && h.ocupado === true);
+  const huesped = leerTabla(HOJAS.HUESPEDES).find(
+    h => String(h.cuarto) === cuarto && String(h.edificio).trim().toUpperCase() === edificio && h.ocupado === true
+  );
   if (!huesped) {
     const fallos = Number(cache.get(claveFallos) || 0) + 1;
     if (fallos >= BLOQUEO_CUARTO.maxFallos) {
