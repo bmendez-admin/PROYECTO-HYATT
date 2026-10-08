@@ -1,0 +1,80 @@
+.pantalla--portada {
+  grid-template-rows: 1120px 1fr 320px;
+  cursor: pointer;
+}
+
+.portada__foto {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1080px;
+  height: 1092px;
+  clip-path: path('M0 0 H1080 V934 C689 1089 305 1152 0 1021 Z');
+}
+
+.portada__bienvenida {
+  position: absolute;
+  top: 32px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: var(--color-texto);
+  font-size: 37px;
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.pantalla--portada .zona-contenido::before {
+  content: '';
+  position: absolute;
+  top: -20px;
+  left: 90px;
+  width: 900px;
+  height: 480px;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.04) 0%, rgba(0, 0, 0, 0) 70%);
+  pointer-events: none;
+}
+
+.portada__logo {
+  position: absolute;
+  top: 116px;
+  left: 218px;
+  width: 650px;
+  height: 209px;
+}
+
+.portada__titulo {
+  position: absolute;
+  top: 390px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: var(--color-texto);
+  font-size: 55px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.portada__comenzar {
+  position: absolute;
+  top: 21px;
+  left: 285px;
+  width: 510px;
+  min-height: 119px;
+  height: 119px;
+  font-size: 47px;
+}
+
+.portada__ayuda {
+  position: absolute;
+  top: 183px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: var(--color-texto);
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1;
+}

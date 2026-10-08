@@ -166,3 +166,24 @@ Los pedidos y movimientos de prueba quedan en KIOSCO, KDS, PEDIDO_ITEMS, INVENTA
 - Probar en real `ping` aislado, y `pausar` y `reanudar` repetidos.
 - Confirmar los parámetros propuestos de relleno y reabasto, y decidir la línea fija al pie de la pantalla de Estado.
 - Comparar `ApiEstado.gs` del repo con la versión del editor.
+
+## Kiosco (frontend)
+- Lienzo fijo 1080×1920 escalado con `--escala`; cada pantalla tiene tres zonas (encabezado 150 px, contenido, acciones 300 px).
+- Sin `innerHTML`: todo se construye con `shared/dom.js`. CSP por meta con `connect-src` solo a script.google.com y script.googleusercontent.com.
+- Paleta oficial en `shared/tokens.css`: magenta #B0277F (acción), azul #0071CD, gris "Volver" #ACA39C, encabezado #F1F0EE, texto #2A2F43.
+- Fuentes: Montserrat (texto) y Optima nova LT Demi Condensed (títulos, vía `--fuente-titulo`). Licencia web de Optima por confirmar con el cliente.
+- Encabezado como componente (banda de 150 px con pestaña recortada por `clip-path`), con selector ESP/ENG y botón de volver opcional.
+
+## Identificación
+- `validar_cuarto` recibe `edificio` (1 a 3 caracteres alfanuméricos, mayúsculas en servidor) y `cuarto` (`^\d{3,4}$`). 5 fallos seguidos bloquean 60 s (E_RATE); no coincidencia, cuarto desocupado o inexistente devuelven el mismo E_NOT_FOUND.
+- Estado en `sesion.identificacion`; `sesion.generacion` invalida respuestas tardías tras un reinicio de sesión.
+
+## Catálogo y menú
+- `servicios/catalogo.js`: caché en memoria, vigencia 60 s, una sola petición en vuelo. Se precarga al tocar "Comenzar" y se refresca al entrar al menú si está vencido.
+- Categorías derivadas de `categoria_es` en el orden del backend; los nombres se muestran con `categoria_<idioma>`.
+- Fotos: campo `imagen` → `assets/productos/<imagen>.jpg` (`EXTENSION_PRODUCTO` en `kiosco/config.js`). Sin foto o con error, se muestra `platter.png` tenue.
+- Carrito en `sesion.carrito` (`producto_id`, `cantidad`). Tope por producto: mínimo entre `disponible_max` y `limites.max_cantidad_producto`; tope total: `limites.max_articulos` (hoy 10 y 20).
+- Iconos de diseño en PNG: `assets/iconos/{agregar,avanzar,edificio,eliminar,habitacion,persona,platter,retroceder}.png`.
+
+## Pruebas
+- Chromium con Playwright contra un backend simulado (`mock.js`); 65 comprobaciones en 4 suites.

@@ -260,3 +260,9 @@ Los parámetros por venue (turnos, semáforo, meta, turno vencido, día operativ
 - Inputs inválidos y errores manejados, con estados de carga, error y vacío.
 - Ningún `innerHTML` con datos, contraste verificado, sin datos personales fuera de su rol.
 - Explicación de cambios, commit en Conventional Commits y documentación actualizada al cierre.
+
+### v1.5 (06/10/2026)
+- S4 (kiosco): portada, identificación y menú completos; detalle del platillo pendiente de referencia de diseño.
+- El menú lee el catálogo real y respeta el orden y las categorías de la hoja DB (hoy 7 categorías y 25 productos).
+- Navegación: botón de volver en identificación y menú. Desde el menú se conservan huésped y carrito; "No soy yo" vacía el carrito.
+- Fuera de S4, pasa a S5: pantalla de orden, envío del pedido, éxito, errores, inactividad, inglés completo.

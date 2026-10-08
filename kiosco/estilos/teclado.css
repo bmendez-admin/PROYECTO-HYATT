@@ -1,0 +1,71 @@
+.teclado {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 0 24px;
+  background: var(--color-encabezado);
+}
+
+.teclado__fila {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.tecla {
+  width: 94px;
+  height: 96px;
+  border: 0;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 3px 0 var(--color-volver);
+  color: var(--color-texto);
+  font-family: var(--fuente);
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.tecla:active {
+  background: var(--color-accion);
+  color: var(--color-accion-texto);
+  box-shadow: none;
+}
+
+.tecla:focus-visible {
+  outline: 6px solid var(--color-foco);
+  outline-offset: 3px;
+}
+
+.tecla--borrar {
+  font-size: 30px;
+}
+
+.tecla--ancha {
+  width: 198px;
+}
+
+.tecla--listo {
+  background: var(--color-accion);
+  box-shadow: 0 3px 0 var(--color-accion-presionado);
+  color: var(--color-accion-texto);
+  font-size: 36px;
+}
+
+.tecla--listo:active {
+  background: var(--color-accion-presionado);
+}
+
+.tecla--listo-ancha {
+  width: 520px;
+}
+
+.teclado--numerico .tecla {
+  width: 200px;
+}

@@ -1,0 +1,40 @@
+:root {
+  --lienzo-ancho: 1080px;
+  --lienzo-alto: 1920px;
+  --escala: 1;
+
+  --color-accion: #b0277f;
+  --color-accion-presionado: #8d1f66;
+  --color-accion-texto: #ffffff;
+  --color-volver: #aca39c;
+  --color-volver-presionado: #918880;
+  --color-volver-texto: #2a2f43;
+  --color-azul: #0071cd;
+  --color-peligro: #df5757;
+  --color-encabezado: #f1f0ee;
+  --color-fondo: #ffffff;
+  --color-letterbox: #111111;
+  --color-texto: #2a2f43;
+  --color-texto-secundario: #b0b0b0;
+  --color-texto-ayuda: #767676;
+  --color-foco: #0071cd;
+
+  --idioma-activo-fondo: var(--color-accion);
+  --idioma-activo-borde: #ffffff;
+  --idioma-activo-texto: #ffffff;
+  --idioma-inactivo-fondo: rgba(60, 80, 120, 0.5);
+  --idioma-inactivo-borde: rgba(125, 180, 235, 0.9);
+  --idioma-inactivo-texto: #cfe6fb;
+
+  --fuente: 'Montserrat', system-ui, sans-serif;
+  --fuente-titulo: 'Optima Nova Condensed', 'Montserrat', system-ui, sans-serif;
+
+  --alto-boton: 120px;
+  --ancho-boton: 510px;
+  --radio-boton: 8px;
+  --texto-boton: 64px;
+  --objetivo-tactil-min: 72px;
+
+  --alto-zona-encabezado: 150px;
+  --alto-zona-acciones: 300px;
+}

@@ -1,0 +1,61 @@
+.encabezado {
+  overflow: visible;
+  z-index: 1;
+}
+
+.encabezado__banda {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1080px;
+  height: 150px;
+  background: var(--color-encabezado);
+  clip-path: path('M0 0 H1080 V34 Q1080 28 1074 28 H775 Q760 28 749 38 L672 150 H0 Z');
+}
+
+.encabezado__logo {
+  position: absolute;
+  top: 59px;
+  left: 761px;
+  width: 285px;
+  height: 92px;
+}
+
+.encabezado__volver {
+  position: absolute;
+  top: 38px;
+  left: 426px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  height: 74px;
+  padding: 0 26px 0 18px;
+  border: 3px solid var(--color-accion);
+  border-radius: var(--radio-boton);
+  background: #ffffff;
+  color: var(--color-texto);
+  font-family: var(--fuente);
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.encabezado__volver:active {
+  background: var(--color-encabezado);
+}
+
+.encabezado__volver:focus-visible {
+  outline: 6px solid var(--color-foco);
+  outline-offset: 4px;
+}
+
+.encabezado__volver-icono {
+  width: 24px;
+  height: 36px;
+  background: var(--color-accion);
+  -webkit-mask: url('../../assets/iconos/retroceder.png') center / contain no-repeat;
+  mask: url('../../assets/iconos/retroceder.png') center / contain no-repeat;
+}
