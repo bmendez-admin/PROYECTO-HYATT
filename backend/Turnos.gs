@@ -9,6 +9,32 @@ function validarChef(cuerpo) {
   return chef;
 }
 
+function verificarCodigo(chef, cuerpo, contexto) {
+  const cache = CacheService.getScriptCache();
+  const sufijo = contexto.venueId + '_' + chef.chef_id;
+  const claveBloqueo = 'chef_bloqueo_' + sufijo;
+  const claveFallos = 'chef_fallos_' + sufijo;
+  if (cache.get(claveBloqueo)) throw new ErrorApi('E_RATE', 'chef bloqueado');
+  const codigo = validarTexto(cuerpo.codigo, 6, /^\d{6}$/);
+  if (String(chef.codigo).trim() !== codigo) {
+    const fallos = Number(cache.get(claveFallos) || 0) + 1;
+    if (fallos >= BLOQUEO_CHEF.maxFallos) {
+      cache.put(claveBloqueo, '1', BLOQUEO_CHEF.ventanaSeg);
+      cache.remove(claveFallos);
+    } else {
+      cache.put(claveFallos, String(fallos), BLOQUEO_CHEF.ventanaSeg);
+    }
+    throw new ErrorApi('E_NOT_FOUND', 'chef');
+  }
+  cache.remove(claveFallos);
+}
+
+function validarTipoPausa(cuerpo) {
+  if (cuerpo.tipo === undefined) return 'corto';
+  if (typeof cuerpo.tipo !== 'string' || TIPOS_PAUSA.indexOf(cuerpo.tipo) === -1) throw new ErrorApi('E_VALIDATION', 'tipo');
+  return cuerpo.tipo;
+}
+
 function turnosAbiertosConPosicion() {
   return leerFilasConPosicion(HOJAS.TURNOS).filter(t => estaAbierto(t.datos.estado));
 }
@@ -58,6 +84,7 @@ function respuestaInicio(turno, repetido) {
 
 function iniciarTurno(cuerpo, contexto) {
   const chef = validarChef(cuerpo);
+  verificarCodigo(chef, cuerpo, contexto);
   return conLock(() => {
     const venue = obtenerVenue(contexto.venueId);
     const ahora = new Date();
@@ -91,19 +118,23 @@ function iniciarTurno(cuerpo, contexto) {
 
 function pausarTurno(cuerpo, contexto) {
   const chef = validarChef(cuerpo);
+  const tipo = validarTipoPausa(cuerpo);
   return conLock(() => {
     const venue = obtenerVenue(contexto.venueId);
     const ahora = new Date();
     cerrarVencidos(contexto.venueId, venue, ahora);
     const abierto = turnoDelChef(contexto.venueId, chef.chef_id);
-    if (abierto && abierto.datos.estado === TURNO.PAUSA) return respuestaTurno(abierto.datos, TURNO.PAUSA, true);
+    if (abierto && abierto.datos.estado === TURNO.PAUSA) {
+      return Object.assign(respuestaTurno(abierto.datos, TURNO.PAUSA, true), { tipo: abierto.datos.tipo_pausa || 'corto' });
+    }
     const turno = exigirTurnoActivo(contexto.venueId, chef.chef_id);
     exigirSinPedidosEnPreparacion(contexto.venueId, chef.chef_id);
     turno.datos.estado = TURNO.PAUSA;
     turno.datos.hora_pausa = ahora;
+    turno.datos.tipo_pausa = tipo;
     escribirFila(HOJAS.TURNOS, turno.fila, turno.datos);
     invalidarCache(contexto.venueId);
-    return respuestaTurno(turno.datos, TURNO.PAUSA, false);
+    return Object.assign(respuestaTurno(turno.datos, TURNO.PAUSA, false), { tipo: tipo });
   });
 }
 
@@ -121,6 +152,7 @@ function reanudarTurno(cuerpo, contexto) {
     turno.datos.minutos_pausa = minutosDePausa(turno.datos, ahora);
     turno.datos.estado = TURNO.ACTIVO;
     turno.datos.hora_pausa = '';
+    turno.datos.tipo_pausa = '';
     escribirFila(HOJAS.TURNOS, turno.fila, turno.datos);
     invalidarCache(contexto.venueId);
     return respuestaTurno(turno.datos, TURNO.ACTIVO, false);
@@ -145,6 +177,7 @@ function cerrarTurno(cuerpo, contexto) {
     turno.datos.hora_fin = ahora;
     turno.datos.motivo_cierre = MOTIVO_TURNO_MANUAL;
     turno.datos.hora_pausa = '';
+    turno.datos.tipo_pausa = '';
     escribirFila(HOJAS.TURNOS, turno.fila, turno.datos);
     invalidarCache(contexto.venueId);
     return respuestaTurno(turno.datos, TURNO.CERRADO, false);

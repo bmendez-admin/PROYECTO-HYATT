@@ -21,8 +21,8 @@ const ENCABEZADOS = Object.freeze({
   KDS: ['pedido_id', 'numero', 'venue_id', 'hora_llegada', 'estatus', 'chef_id', 'hora_en_preparacion', 'hora_completo', 'hora_recibido', 'hora_cancelado', 'motivo_cancelacion'],
   INVENTARIO: ['mov_id', 'venue_id', 'producto_id', 'tipo', 'cantidad', 'stock_resultante', 'hora', 'responsable'],
   REABASTO: ['solicitud_id', 'venue_id', 'producto_id', 'cantidad', 'chef_id', 'hora_solicitud', 'estatus', 'atendido_por', 'hora_atencion'],
-  CHEFS: ['chef_id', 'nombre', 'activo'],
-  TURNOS: ['turno_id', 'venue_id', 'chef_id', 'hora_inicio', 'hora_fin', 'estado', 'minutos_pausa', 'motivo_cierre', 'hora_pausa'],
+  CHEFS: ['chef_id', 'nombre', 'activo', 'avatar', 'codigo'],
+  TURNOS: ['turno_id', 'venue_id', 'chef_id', 'hora_inicio', 'hora_fin', 'estado', 'minutos_pausa', 'motivo_cierre', 'hora_pausa', 'tipo_pausa'],
   LOG: ['timestamp', 'accion', 'rol', 'venue_id', 'codigo_error', 'detalle_interno']
 });
 
@@ -35,8 +35,8 @@ const COLUMNAS_TEXTO = Object.freeze({
   KDS: ['pedido_id', 'venue_id', 'estatus', 'chef_id', 'motivo_cancelacion'],
   INVENTARIO: ['mov_id', 'venue_id', 'producto_id', 'tipo', 'responsable'],
   REABASTO: ['solicitud_id', 'venue_id', 'producto_id', 'chef_id', 'estatus', 'atendido_por'],
-  CHEFS: ['chef_id', 'nombre'],
-  TURNOS: ['turno_id', 'venue_id', 'chef_id', 'estado', 'motivo_cierre'],
+  CHEFS: ['chef_id', 'nombre', 'avatar', 'codigo'],
+  TURNOS: ['turno_id', 'venue_id', 'chef_id', 'estado', 'motivo_cierre', 'tipo_pausa'],
   LOG: ['accion', 'rol', 'venue_id', 'codigo_error', 'detalle_interno']
 });
 
@@ -89,7 +89,7 @@ const REABASTO_ESTATUS = Object.freeze({
 
 const CANTIDAD_MAX_REPOSICION = 200;
 
-const MOTIVOS_CANCELACION = Object.freeze(['sin_ingredientes', 'pedido_duplicado', 'huesped_cancelo', 'otro']);
+const MOTIVOS_CANCELACION =Object.freeze(['sin_ingredientes', 'pedido_duplicado', 'huesped_cancelo', 'otro']);
 const MOTIVO_CIERRE_AUTOMATICO = 'cierre_automatico';
 const MOTIVO_TURNO_MANUAL = 'manual';
 const MOTIVO_TURNO_VENCIDO = 'vencido';
@@ -105,3 +105,10 @@ const BLOQUEO_CUARTO = Object.freeze({
   maxFallos: 5,
   ventanaSeg: 60
 });
+
+const BLOQUEO_CHEF = Object.freeze({
+  maxFallos: 5,
+  ventanaSeg: 60
+});
+
+const TIPOS_PAUSA = Object.freeze(['corto', 'comida']);

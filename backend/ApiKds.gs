@@ -48,7 +48,15 @@ function construirCola(venueId) {
     },
     chefs: listaChefs.map(c => {
       const turno = datos.turnos.find(t => t.chef_id === c.chef_id);
-      return { chef_id: c.chef_id, nombre: c.nombre, turno: turno ? turno.estado : 'ninguno' };
+      const enPausa = turno && turno.estado === 'pausa';
+      return {
+        chef_id: c.chef_id,
+        nombre: c.nombre,
+        avatar: c.avatar === 'm' ? 'm' : 'h',
+        turno: turno ? turno.estado : 'ninguno',
+        pausa_tipo: enPausa ? turno.tipo_pausa || 'corto' : '',
+        pausa_desde: enPausa ? aIso(turno.hora_pausa) : ''
+      };
     }),
     pedidos: pedidos.map(p => ({
       pedido_id: p.pedido_id,

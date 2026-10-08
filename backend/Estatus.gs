@@ -85,6 +85,7 @@ function cerrarTurnosVencidos(venueId, venue, ahora) {
     turno.datos.hora_fin = ahora;
     turno.datos.motivo_cierre = MOTIVO_TURNO_VENCIDO;
     turno.datos.hora_pausa = '';
+    turno.datos.tipo_pausa = '';
     escribirFila(HOJAS.TURNOS, turno.fila, turno.datos);
   });
   return vencidos.length;
@@ -146,6 +147,8 @@ function aplicarTransicion(venueId, pedidoId, transicion, chefId, motivo) {
   const estatus = pedido.estatus;
   const delChef = pedido.chef_id === chefId;
   const estatusActual = { estatus: estatus };
+
+  // Reintento tras una respuesta perdida: el pedido ya quedó como se pidió, se responde ok sin escribir nada.
   if (transicionYaAplicada(transicion, pedido, chefId, motivo)) {
     return { pedido_id: pedidoId, estatus: estatus, chef_id: pedido.chef_id || '', repetido: true };
   }
@@ -189,5 +192,5 @@ function aplicarTransicion(venueId, pedidoId, transicion, chefId, motivo) {
   escribirFila(HOJAS.KDS, registro.fila, pedido);
   if (transicion === 'cancelar') devolverStock(venueId, [pedidoId], ahora);
   invalidarCache(venueId);
-    return { pedido_id: pedidoId, estatus: pedido.estatus, chef_id: pedido.chef_id || '', repetido: false };
+  return { pedido_id: pedidoId, estatus: pedido.estatus, chef_id: pedido.chef_id || '', repetido: false };
 }

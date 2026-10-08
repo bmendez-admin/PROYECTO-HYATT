@@ -6,10 +6,19 @@ function itemsDePedidos(pedidoIds) {
   const porPedido = Object.create(null);
   if (!pedidoIds.length) return porPedido;
   const conjunto = new Set(pedidoIds);
+  const imagenes = Object.create(null);
+  leerTabla(HOJAS.DB).forEach(producto => {
+    imagenes[producto.producto_id] = producto.imagen || '';
+  });
   leerTabla(HOJAS.PEDIDO_ITEMS).forEach(item => {
     if (!conjunto.has(item.pedido_id)) return;
     if (!porPedido[item.pedido_id]) porPedido[item.pedido_id] = [];
-    porPedido[item.pedido_id].push({ nombre_es: item.nombre_es, cantidad: Number(item.cantidad) });
+    porPedido[item.pedido_id].push({
+      producto_id: item.producto_id,
+      nombre_es: item.nombre_es,
+      cantidad: Number(item.cantidad),
+      imagen: imagenes[item.producto_id] || ''
+    });
   });
   return porPedido;
 }

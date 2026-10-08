@@ -88,12 +88,25 @@ function limpiarDatos(nombre) {
 
 function reiniciarDemo() {
   conLock(() => {
-    [HOJAS.KIOSCO, HOJAS.PEDIDO_ITEMS, HOJAS.KDS, HOJAS.TURNOS, HOJAS.REABASTO, HOJAS.INVENTARIO, HOJAS.DB].forEach(limpiarDatos);
+    [HOJAS.KIOSCO, HOJAS.PEDIDO_ITEMS, HOJAS.KDS, HOJAS.TURNOS, HOJAS.REABASTO, HOJAS.INVENTARIO, HOJAS.DB, HOJAS.CHEFS].forEach(limpiarDatos);
     sembrarDatosDemo();
   });
   leerTabla(HOJAS.VENUES).forEach(venue => {
     invalidarCache(venue.venue_id);
-    CacheService.getScriptCache().removeAll(['cuarto_bloqueo_' + venue.venue_id, 'cuarto_fallos_' + venue.venue_id]);
+    const claves = ['cuarto_bloqueo_' + venue.venue_id, 'cuarto_fallos_' + venue.venue_id];
+    CHEFS_DEMO.forEach(chef => {
+      claves.push('chef_bloqueo_' + venue.venue_id + '_' + chef.chef_id, 'chef_fallos_' + venue.venue_id + '_' + chef.chef_id);
+    });
+    CacheService.getScriptCache().removeAll(claves);
   });
   Logger.log(JSON.stringify(verificarEsquema(), null, 2));
+}
+
+function reiniciarChefs() {
+  conLock(() => {
+    [HOJAS.TURNOS, HOJAS.CHEFS].forEach(limpiarDatos);
+    sembrar(HOJAS.CHEFS, CHEFS_DEMO);
+  });
+  leerTabla(HOJAS.VENUES).forEach(venue => invalidarCache(venue.venue_id));
+  Logger.log(JSON.stringify(leerTabla(HOJAS.CHEFS).map(c => c.chef_id + ' ' + c.nombre + ' ' + c.avatar + ' ' + c.codigo), null, 2));
 }

@@ -9,9 +9,14 @@ const VALIDADORES = {
   catalogo: d => esObjeto(d) && Array.isArray(d.productos) && esObjeto(d.limites) && esObjeto(d.venue),
   validar_cuarto: d => esObjeto(d) && typeof d.huesped_id === 'string' && typeof d.nombre_display === 'string',
   crear_pedido: d => esObjeto(d) && typeof d.pedido_id === 'string' && d.numero !== undefined,
-  estado: d => esObjeto(d) && Array.isArray(d.en_proceso) && Array.isArray(d.listo)
+  estado: d => esObjeto(d) && Array.isArray(d.en_proceso) && Array.isArray(d.listo),
+  cola: d => esObjeto(d) && Array.isArray(d.chefs) && Array.isArray(d.pedidos) && esObjeto(d.parametros) && typeof d.hora_servidor === 'string',
+  iniciar_turno: d => esObjeto(d) && typeof d.turno_id === 'string' && typeof d.chef_id === 'string' && typeof d.estado === 'string',
+  pausar_turno: d => esObjeto(d) && typeof d.turno_id === 'string' && typeof d.estado === 'string',
+  reanudar_turno: d => esObjeto(d) && typeof d.turno_id === 'string' && typeof d.estado === 'string',
+  cerrar_turno: d => esObjeto(d) && typeof d.turno_id === 'string' && typeof d.estado === 'string',
+  cambiar_estatus: d => esObjeto(d) && typeof d.pedido_id === 'string' && typeof d.estatus === 'string'
 };
-
 let contexto = null;
 
 export class ErrorRed extends Error {

@@ -44,9 +44,12 @@ const APELLIDOS_DEMO = [
 ];
 
 const CHEFS_DEMO = [
-  { chef_id: 'chef-01', nombre: 'Mateo', activo: true },
-  { chef_id: 'chef-02', nombre: 'Lucía', activo: true },
-  { chef_id: 'chef-03', nombre: 'Andrés', activo: true }
+  { chef_id: 'chef-01', nombre: 'Luis', activo: true, avatar: 'h', codigo: '482913' },
+  { chef_id: 'chef-02', nombre: 'José', activo: true, avatar: 'h', codigo: '735026' },
+  { chef_id: 'chef-03', nombre: 'Sofía', activo: true, avatar: 'm', codigo: '619840' },
+  { chef_id: 'chef-04', nombre: 'Daniela', activo: true, avatar: 'm', codigo: '254781' },
+  { chef_id: 'chef-05', nombre: 'Raúl', activo: true, avatar: 'h', codigo: '907364' },
+  { chef_id: 'chef-06', nombre: 'Laura', activo: true, avatar: 'm', codigo: '386172' }
 ];
 
 function productosBites() {
