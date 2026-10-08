@@ -51,8 +51,8 @@ const ACCIONES = {
     roles: ['kds'],
     ejecutar: (cuerpo, contexto) => solicitarReabasto(cuerpo, contexto)
   },
-  estado: {
-    roles: ['estado'],
+    estado: {
+    roles: ['estado', 'kiosco'],
     ejecutar: (cuerpo, contexto) => consultarEstado(cuerpo, contexto)
   }
 };
