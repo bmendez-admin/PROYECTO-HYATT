@@ -1,6 +1,6 @@
 # Documentación técnica: Kiosco Hyatt Breathless
 
-Actualizada al cierre de S3b · 05/10/2026
+Actualizada al cierre de S5 · 08/10/2026
 
 ## 1. Arquitectura
 - **Front:** HTML, CSS y JS (módulos ES) en GitHub Pages. Sin build.
@@ -59,7 +59,7 @@ Los `.gs` del repo deben ser idénticos a los del editor de Apps Script.
 | inventario | kds | — | `{venue_id, hora_servidor, productos[{producto_id, categoria_es, categoria_en, nombre_es, nombre_en, stock_actual, stock_minimo, estado: ok\|bajo\|agotado, ultimo_relleno (ISO o vacío), reabasto_pendiente}]}`, ordenados por stock ascendente y luego por `orden`. No exige turno |
 | registrar_relleno | kds | `request_id`, `producto_id`, `cantidad` (entero 1–200), `chef_id` | `{mov_id, producto_id, cantidad, stock_actual, duplicado}` |
 | solicitar_reabasto | kds | `request_id`, `producto_id`, `cantidad` (entero 1–200), `chef_id` | `{solicitud_id, producto_id, cantidad, estatus, duplicado}` |
-| estado | estado | — | `en_proceso [{numero, estatus}]`, `listo [{numero, hora_completo}]`, `hora_servidor`, `listo_visible_min` |
+| estado | estado, kiosco | — | `en_proceso [{numero, estatus}]`, `listo [{numero, hora_completo}]`, `hora_servidor`, `listo_visible_min` |
 
 `transicion`: `tomar`, `completar`, `recibir`, `cancelar`, `liberar`, `revertir`. `motivo`: `sin_ingredientes`, `pedido_duplicado`, `huesped_cancelo`, `otro`.
 
@@ -116,6 +116,7 @@ Solo `E_AUTH` y `E_INTERNAL` se escriben en LOG.
 - `doGet` responde `E_METHOD`, nunca un éxito.
 - Columnas de texto en formato `@` y neutralización de valores que empiecen con `=`, `+`, `-` o `@` en LOG.
 - Errores genéricos al cliente.
+- La acción `estado` está permitida para los roles `estado` y `kiosco` (lista blanca en `main.gs`). Solo expone número y estatus, sin datos del huésped.
 
 ## 7. Concurrencia y rendimiento
 - `LockService` en toda escritura, espera máxima de 30 s, `flush` antes de liberar.
@@ -123,6 +124,7 @@ Solo `E_AUTH` y `E_INTERNAL` se escriben en LOG.
 - Mediciones: lecturas de 1–4.6 s, escrituras de 2.6–8.5 s, y hasta 17.8 s con 5 simultáneas (se turnan, unos 3 s cada una). El 02/10/2026 hubo picos de 15–25 s y 29 s en el primer `cola` tras días sin uso (cierre masivo). El 05/10/2026, desde el probador, de 4.4 a 20.1 s sin 404 y de 27.8 a 53.5 s con un reintento.
 - **Reglas para el cliente:**
   - Hasta 3 reintentos con esperas de 1, 2 y 4 s ante respuestas que no sean JSON (404 intermitente de Google), `E_METHOD` o fallo de red, reenviando el mismo cuerpo y el mismo `request_id`. Tiempo máximo de 30 s por intento. Con un 404, una acción puede tardar cerca de un minuto: botones deshabilitados con estado de carga.
+  - `llamar(accion, datos, {limiteTotalMs, alReintentar})` acota el tiempo total, reintentos incluidos: cada intento usa el menor entre 30 s y el tiempo restante, y no se reintenta si no alcanza. `crear_pedido` usa 60 s y la consulta de la pantalla de espera 12 s. `alReintentar(intento)` avisa de cada reintento.
   - Comprobar que `data` tenga la forma de lo que se pidió (por ejemplo `pedido_id` en `cambiar_estatus`).
   - `repetido: true` y `duplicado: true` son éxito.
   - Reintentar es seguro en todas las acciones: lecturas, `crear_pedido`, `cambiar_estatus`, turnos, relleno y reabasto son idempotentes. `validar_cuarto` también es seguro de reintentar, aunque cada fallo cuenta para el bloqueo de 5 cuartos.
@@ -166,24 +168,69 @@ Los pedidos y movimientos de prueba quedan en KIOSCO, KDS, PEDIDO_ITEMS, INVENTA
 - Probar en real `ping` aislado, y `pausar` y `reanudar` repetidos.
 - Confirmar los parámetros propuestos de relleno y reabasto, y decidir la línea fija al pie de la pantalla de Estado.
 - Comparar `ApiEstado.gs` del repo con la versión del editor.
+- Optimizar `crear_pedido` (escritura por bloque): se observaron de 7 a 12 s con 13 unidades.
+- Confirmar con el cliente la licencia web de la fuente Optima nova.
 
 ## Kiosco (frontend)
-- Lienzo fijo 1080×1920 escalado con `--escala`; cada pantalla tiene tres zonas (encabezado 150 px, contenido, acciones 300 px).
+
+### Estructura
+kiosco/ app.js · config.js · estado.js · navegacion.js · textos.js · index.html
+componentes/ encabezado.js · teclado.js · tarjeta-producto.js · modal-producto.js
+pantallas/ portada.js · identificacion.js · menu.js · orden.js · ticket.js · espera.js
+servicios/ catalogo.js · carrito.js · pedido.js · pendientes.js · inactividad.js
+estilos/ componentes.css · encabezado.css · portada.css · identificacion.css · teclado.css · menu.css · modal.css · orden.css · ticket.css · inactividad.css · espera.css
+
+### Lienzo y reglas
+- Lienzo fijo 1080×1920 escalado con `--escala`. Las pantallas con zonas tienen encabezado de 150 px, contenido y acciones de 300 px. Ticket y espera usan su propia distribución.
 - Sin `innerHTML`: todo se construye con `shared/dom.js`. CSP por meta con `connect-src` solo a script.google.com y script.googleusercontent.com.
-- Paleta oficial en `shared/tokens.css`: magenta #B0277F (acción), azul #0071CD, gris "Volver" #ACA39C, encabezado #F1F0EE, texto #2A2F43.
+- Paleta oficial en `shared/tokens.css`: magenta #B0277F (acción), azul #0071CD, rojo #DF5757 (avisos y peligro), gris "Volver" #ACA39C, encabezado #F1F0EE, texto #2A2F43.
 - Fuentes: Montserrat (texto) y Optima nova LT Demi Condensed (títulos, vía `--fuente-titulo`). Licencia web de Optima por confirmar con el cliente.
-- Encabezado como componente (banda de 150 px con pestaña recortada por `clip-path`), con selector ESP/ENG y botón de volver opcional.
+- Encabezado como componente (banda de 150 px con pestaña recortada por `clip-path`), con selector ESP/ENG y botón de volver opcional. El ticket usa el selector a la izquierda y el logo a la derecha, sin volver.
+- Navegación (`navegacion.js`): `registrarPantalla`, `ir`, `irConFundido` (la pantalla anterior se desvanece encima de la nueva; sin animación con `prefers-reduced-motion`) y `pantallaActual`. Un cambio de idioma vuelve a pintar la pantalla actual.
 
-## Identificación
+### Sesión (`estado.js`)
+`sesion` guarda `huesped`, `carrito` (`producto_id`, `cantidad`), `identificacion`, `pedido` (`request_id` y `firma`), `ticket` (`numero`) y `generacion`. `reiniciarSesion()` lo vacía todo, regresa el idioma a español y sube `generacion`, que invalida respuestas y temporizadores tardíos.
+
+### Identificación
 - `validar_cuarto` recibe `edificio` (1 a 3 caracteres alfanuméricos, mayúsculas en servidor) y `cuarto` (`^\d{3,4}$`). 5 fallos seguidos bloquean 60 s (E_RATE); no coincidencia, cuarto desocupado o inexistente devuelven el mismo E_NOT_FOUND.
-- Estado en `sesion.identificacion`; `sesion.generacion` invalida respuestas tardías tras un reinicio de sesión.
+- Fondo con foto (`assets/fondos/identificacion.jpg`) y respaldo blanco si falla. Campos de edificio y habitación centrados, teclado propio y confirmación del nombre en solo lectura.
 
-## Catálogo y menú
-- `servicios/catalogo.js`: caché en memoria, vigencia 60 s, una sola petición en vuelo. Se precarga al tocar "Comenzar" y se refresca al entrar al menú si está vencido.
-- Categorías derivadas de `categoria_es` en el orden del backend; los nombres se muestran con `categoria_<idioma>`.
+### Catálogo y menú
+- `servicios/catalogo.js`: caché en memoria con vigencia de 60 s y una sola petición en vuelo. Se precarga al tocar "Comenzar" y se refresca al entrar al menú si venció. `refrescarCatalogo()` fuerza una recarga (se usa tras `E_STOCK`).
+- Esqueleto de carga (7 categorías y 6 tarjetas) y aviso de lentitud. Categorías derivadas de `categoria_es` en el orden del backend, con nombres por idioma.
 - Fotos: campo `imagen` → `assets/productos/<imagen>.jpg` (`EXTENSION_PRODUCTO` en `kiosco/config.js`). Sin foto o con error, se muestra `platter.png` tenue.
-- Carrito en `sesion.carrito` (`producto_id`, `cantidad`). Tope por producto: mínimo entre `disponible_max` y `limites.max_cantidad_producto`; tope total: `limites.max_articulos` (hoy 10 y 20).
-- Iconos de diseño en PNG: `assets/iconos/{agregar,avanzar,edificio,eliminar,habitacion,persona,platter,retroceder}.png`.
+- Aviso de producto agregado (azul) y avisos de límite o agotado (rojo). Los botones de producto agotado usan `aria-disabled` para poder avisar al tocarlos.
+
+### Detalle del platillo
+Modal con foto, nombre, descripción y botón Ordenar. Solo se cierra con su botón (tocar fuera no lo cierra). Con producto agotado, Ordenar avisa en rojo.
+
+### Carrito y orden
+- Carrito en `sesion.carrito`. Tope por producto: mínimo entre `disponible_max` y `limites.max_cantidad_producto`; tope total: `limites.max_articulos`; máximo de líneas: `MAX_LINEAS_PEDIDO` (15) en `kiosco/config.js`. Hoy 10, 20 y 15.
+- `servicios/carrito.js`: `agregarAlCarrito`, `fijarCantidad`, `quitarLinea`, `cantidadDe`, `unidadesTotales`. Resultados: `ok`, `agotado`, `max_producto`, `max_total`, `max_lineas`, `eliminado`.
+- Orden: cantidad editable con teclado numérico (2 dígitos; 0 elimina), quitar línea, lista con desplazamiento y mensaje de orden vacía.
+
+### Envío del pedido
+- `servicios/pedido.js`: `crear_pedido` con `request_id` ligado a huésped y carrito (`firma`). Si cualquiera cambia, se genera un `request_id` nuevo; si no, los reintentos reutilizan el mismo. Límite total de 60 s (`LIMITE_PEDIDO_MS`).
+- La pantalla de orden muestra "Enviando…", bloquea la interfaz y, a los 15 s (`ESPERA_TRANQUILIZAR_MS`), un aviso de que el pedido sigue en proceso.
+- Errores: red o tiempo agotado (mensaje con reintento), `E_STOCK` y `E_NOT_FOUND` (recarga el catálogo, quita o reduce líneas y avisa con los nombres; si no hay producto afectado, la habitación no se validó y Continuar se bloquea), `E_RATE` (esperar) y otros (mensaje general). `duplicado: true` es éxito.
+- Éxito: vacía carrito y `sesion.pedido`, guarda `sesion.ticket` y abre el ticket.
+
+### Ticket
+Muestra el número del pedido. "Finalizar pedido" reinicia la sesión y vuelve a la portada. Sin toques, regresa solo a los 15 s (`RETORNO_TICKET_MS`).
+
+### Inactividad
+- `servicios/inactividad.js` revisa cada segundo contra la última interacción (toque o tecla) y reinicia el conteo al cambiar de pantalla.
+- Portada: a los 30 s (`ESPERA_PORTADA_MS`) pasa a la pantalla de espera con fundido. Identificación, menú y orden: a los 2 minutos (`INACTIVIDAD_MS`) abre el aviso "¿Sigues ahí?" con cuenta regresiva de 10 s (`AVISO_INACTIVIDAD_S`). Solo "Seguir aquí" lo cierra; al llegar a 0 se reinicia la sesión y se vuelve a la portada. Ticket y espera no tienen conteo.
+- `fijarPausaInactividad(true)` detiene el conteo mientras se envía un pedido.
+
+### Pantalla de espera
+- `servicios/pendientes.js` llama a `estado` con el rol `kiosco` (12 s de límite) y devuelve los números de `en_proceso` con una marca de "preparando" (`estatus` = `en_preparacion`).
+- Se consulta cada 10 s (`ESPERA_REFRESCO_MS`) solo mientras la pantalla está visible y se repinta únicamente si la lista cambió. Una lista unida en dos columnas, con totales, tarjetas magenta (en preparación) y translúcidas (pendiente de preparar), todo bilingüe. El desplazamiento automático (45 px/s, pausa de 3 s) se activa solo si la lista no cabe. Sin pedidos muestra un mensaje. Sin conexión desde el inicio muestra solo el logo y la invitación. Un toque regresa a la portada.
+- Fondo con la foto de la portada y un velo oscuro; si falla la foto, queda un fondo oscuro liso.
+
+### Iconos
+Iconos de diseño en PNG: `assets/iconos/{agregar,avanzar,edificio,eliminar,habitacion,persona,platter,retroceder}.png`. El chevron y la "X" de la orden se dibujan con CSS; `avanzar.png` no se usa.
 
 ## Pruebas
-- Chromium con Playwright contra un backend simulado (`mock.js`); 65 comprobaciones en 4 suites.
+- Chromium con Playwright contra un backend simulado (`mock.js`); 65 comprobaciones en 4 suites (identificación y menú).
+- Pruebas manuales en Chrome contra el backend real el 08/10/2026 para el modal, la orden, el envío con ticket, el aviso de proceso a los 15 s y la pantalla de espera. Pedidos de prueba: ejecutar `reiniciarDemo()` antes de la demo.

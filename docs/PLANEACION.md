@@ -1,13 +1,13 @@
 # Planeación: Kiosco de pedidos Hyatt Breathless (demo con ruta a producto)
 
-Versión 1.4 · 05/10/2026 · Regida por REQUISITOS_DE_PROMPT.md
+Versión 1.6 · 08/10/2026 · Regida por REQUISITOS_DE_PROMPT.md
 
 ## 1. Contexto y alcance
 - **Cliente:** Breathless Resorts & Spas (Hyatt Inclusive Collection). Resort solo adultos, todo incluido.
 - **Venue inicial:** Bites (Riviera Cancún, por confirmar). Modelo multi-venue: Bites, Barefoot Grill y The Nook Café.
 - **Objetivo:** el huésped pide desde un kiosco, espera su número en una pantalla, el chef lo prepara desde una tablet, y un dashboard informa la operación.
 - **Entregables:** 1 kiosco, 1 KDS (2 chefs simultáneos, 1 tablet cada uno), 1 pantalla de Estado y 1 dashboard.
-- **Fuera de alcance:** pagos, notas por pedido, puntos o ranking de chefs, fotos de platillos, notificaciones externas (correo o WhatsApp), reinicio diario de stock.
+- **Fuera de alcance:** pagos, notas por pedido, puntos o ranking de chefs, notificaciones externas (correo o WhatsApp), reinicio diario de stock.
 - **Plazo:** 10 sesiones (máximo 2 semanas).
 
 ## 2. Stack y despliegue
@@ -90,6 +90,7 @@ Respuesta: `{ok:true,data}` o `{ok:false,code[,data]}`. Códigos: E_VALIDATION, 
 | kds | `iniciar_turno`, `pausar_turno`, `reanudar_turno`, `cerrar_turno`, `cambiar_estatus` | Hecho (S3a). Turnos idempotentes en S3b |
 | kds | `inventario`, `registrar_relleno`, `solicitar_reabasto` | Hecho (S3b) |
 | estado | `estado` | Hecho (S2) |
+| kiosco | `estado` (solo número y estatus, para la pantalla de espera) | Hecho (S5) |
 | dashboard (sesión por PIN) | `login_dashboard`, `venues`, `metricas`, `exportar_pedidos`, `atender_reabasto` | Pendiente (S3c) |
 
 ### 4.4 Seguridad (OWASP, Zero Trust)
@@ -102,6 +103,7 @@ Respuesta: `{ok:true,data}` o `{ok:false,code[,data]}`. Códigos: E_VALIDATION, 
 - Columnas de texto en formato `@` y neutralización de textos que empiecen con `=`, `+`, `-` o `@`, tanto al guardar como al exportar.
 - Errores genéricos al cliente. Se registran en LOG solo `E_AUTH` y `E_INTERNAL`.
 - Nombre y cuarto nunca salen hacia KDS, Estado ni dashboard. La lista completa de huéspedes nunca llega al kiosco.
+- La acción `estado` acepta los roles `estado` y `kiosco`. Solo expone número y estatus de los pedidos del día, sin datos del huésped, y alimenta la pantalla de espera del kiosco.
 - Producción: reemplazar por un backend real con JWT o cookies HttpOnly.
 
 ### 4.5 Concurrencia y rendimiento
@@ -110,23 +112,22 @@ Respuesta: `{ok:true,data}` o `{ok:false,code[,data]}`. Códigos: E_VALIDATION, 
 - Caché de servidor: 3 s en `catalogo`, `cola`, `estado` e `inventario` (se invalida al escribir), 30 s en `metricas`.
 - Latido de chef en `CacheService` (90 s), no en el Sheet.
 - Métricas agregadas en el servidor. Peticiones CORS normales en `text/plain`.
-- Cliente: hasta 3 reintentos con esperas de 1, 2 y 4 s ante respuestas que no sean JSON (404 intermitente de Google), `E_METHOD` o fallo de red, reenviando siempre el mismo cuerpo y `request_id`. Tiempo máximo de 30 s por intento. Además, debe comprobar que la respuesta tenga la forma esperada para lo que pidió. `repetido: true` y `duplicado: true` se tratan como éxito.
+- Cliente: hasta 3 reintentos con esperas de 1, 2 y 4 s ante respuestas que no sean JSON (404 intermitente de Google), `E_METHOD` o fallo de red, reenviando siempre el mismo cuerpo y `request_id`. Tiempo máximo de 30 s por intento. Además, debe comprobar que la respuesta tenga la forma esperada para lo que pidió. `repetido: true` y `duplicado: true` se tratan como éxito. Opcionalmente acota el tiempo total de una petición (`limiteTotalMs`): 60 s en `crear_pedido` y 12 s en la consulta de la pantalla de espera.
 
 ## 5. Kiosco
-- **Flujo:** Bienvenida (ES/EN) → Identificación → Menú → Resumen → Confirmación.
-- **Identificación:** el huésped escribe su cuarto y confirma el nombre mostrado. Cuarto inexistente y desocupado dan el mismo mensaje, con bloqueo de 60 s tras 5 fallos.
-- **Pedidos:** sin tope de pedidos activos por cuarto (todo incluido). Límites por pedido: 10 por producto, 20 artículos y 15 líneas.
-- **Sesión:** aviso a los 60 s de inactividad y reinicio 10 s después. La confirmación regresa sola a Bienvenida a los 15 s.
-- **Catálogo:** refresco cada 30 s dentro del menú. Producto agotado durante la compra: se avisa y se ajusta (`E_STOCK` devuelve los productos afectados).
-- **Latencia:** el envío del pedido puede tardar cerca de un minuto en un mal momento (404 de Google con reintento). Botón deshabilitado con estado de carga claro y sin permitir enviar dos veces.
-- **Diseño:** tarjetas tipográficas sin fotos, con espacio opcional para imagen. Objetivos táctiles de 72 px o más, texto base de 28 px o más, `aria-live` en el carrito, `prefers-reduced-motion`.
-- **Menú demo Bites:**
-  - Para compartir: guacamole con totopos, croquetas de jamón, papas bravas, tabla de quesos.
-  - Del mar: ceviche de pescado, camarones al ajillo, tostada de atún.
-  - Frescos: ensalada caprese, ensalada de quinoa.
-  - Calientes: brochetas de pollo, empanadas de queso.
-  - Dulces: churros con chocolate, panna cotta de frutos rojos.
-  - Cada uno con nombre y descripción ES/EN. Etiquetas solo de demo.
+- **Flujo:** Portada (ES/EN) → Identificación → Menú (con detalle del platillo) → Orden → Ticket → Portada.
+- **Pantalla de espera:** tras 30 s sin toques en la portada, un fundido lleva a una pantalla con el logo, los totales y la lista de los pedidos pendientes de salir (los pedidos en preparación y los pendientes de preparar, en dos columnas, cada tarjeta con su estado, bilingüe permanente). Si hay más de los que caben, la lista baja sola y repite. Un toque en cualquier parte regresa a la portada. Sin pedidos muestra un mensaje amable. Lee la acción `estado` con el rol `kiosco` cada 10 s y conserva la última lista si falla.
+- **Identificación:** el huésped elige edificio y habitación con teclado propio y solo confirma el nombre mostrado (sin escribirlo). Cuarto inexistente y desocupado dan el mismo mensaje, con bloqueo de 60 s tras 5 fallos. "No soy yo" vacía el carrito.
+- **Menú:** categorías y productos del catálogo real (hoy 7 categorías y 25 productos), con esqueleto de carga. Cada tarjeta abre un modal de detalle con foto y botón Ordenar. El producto agotado se muestra como tal y avisa en rojo al tocarlo. Fotos de diseño con respaldo (icono tenue) si faltan.
+- **Orden:** lista con foto, nombre, cantidad editable con teclado numérico (máximo 2 dígitos; 0 elimina) y botón para quitar la línea. Insignia con el total de unidades en el menú y la orden.
+- **Pedidos:** sin tope de pedidos activos por cuarto (todo incluido). Límites por pedido: 10 por producto, 20 artículos y 15 líneas; el kiosco avisa en rojo al llegar a cada uno.
+- **Envío:** Continuar muestra "Enviando…" y bloquea cantidades, quitar y volver. A los 15 s aparece un aviso de que sigue en proceso. El tiempo total máximo es de 60 s; después se muestra un error de red y se puede reintentar con el mismo `request_id` (liga huésped y carrito, así no se duplica el pedido). `E_STOCK` y `E_NOT_FOUND` recargan el catálogo y ajustan la orden (quitan o reducen líneas) con un aviso rojo que nombra los productos; si no es por stock, la habitación no se pudo validar y Continuar se bloquea. `E_RATE` pide esperar. `duplicado: true` se trata como éxito.
+- **Ticket:** muestra el número de pedido (sin imprimir), con selector de idioma y logo en el encabezado. "Finalizar pedido", o 15 s sin toques, reinicia la sesión y regresa a la portada en español.
+- **Sesión:** aviso "¿Sigues ahí?" a los 2 minutos sin toques en identificación, menú y orden, con cuenta regresiva de 10 s. Si nadie toca, se descarta el carrito, se reinicia la sesión y se vuelve a la portada. Solo el botón "Seguir aquí" cierra el aviso. Se pausa mientras un pedido se envía.
+- **Catálogo:** caché de 60 s en memoria, con precarga al tocar Comenzar. Tras `E_STOCK` se fuerza una recarga.
+- **Diseño:** referencias de diseño del cliente (encabezado, identificación, menú, modal, orden y ticket) con el lienzo fijo de 1080×1920, objetivos táctiles grandes, `aria-live` en avisos y `prefers-reduced-motion`. Pantalla de espera propuesta por nosotros con la foto de la portada y el estilo de la marca.
+- **Latencia:** el envío puede tardar de unos segundos a cerca de un minuto en un mal momento (404 de Google con reintento). Botón con estado de carga claro y sin permitir enviar dos veces.
+- **Modos pendientes:** horizontal y silla de ruedas (contenido bajado, texto grande), cuando haya referencias de diseño. Silla de ruedas solo si sobra tiempo.
 
 ## 6. KDS
 - **Vista:** tres columnas (Pendientes, En preparación, Completos). Una acción principal por tarjeta: Tomar, Completar o Entregado. El chef trabaja solo con número y platillos.
@@ -177,9 +178,16 @@ Respuesta: `{ok:true,data}` o `{ok:false,code[,data]}`. Códigos: E_VALIDATION, 
 | Solicitudes de reabasto pendientes por producto | 1 | Propuesto (implementado) |
 | Ventana de repetición de `cerrar_turno` | 5 min | Acordado |
 | Latido de chef | 90 s | Propuesto |
-| Consulta: KDS y Estado, dashboard, catálogo kiosco | 5 s, 30 s, 30 s | Propuesto |
+| Consulta: KDS y Estado, dashboard | 5 s, 30 s | Propuesto |
 | Tiempo máximo por petición del cliente | 30 s por intento | Propuesto |
 | Reintentos del cliente | 3, con esperas de 1, 2 y 4 s | Propuesto (probado en el probador) |
+| Vigencia del catálogo del kiosco | 60 s | Implementado |
+| Inactividad del kiosco (identificación, menú, orden) | 2 min, más cuenta regresiva de 10 s | Acordado (implementado) |
+| Portada sin toques hasta la pantalla de espera | 30 s | Acordado (implementado) |
+| Ticket hasta volver a la portada | 15 s | Acordado (implementado) |
+| Consulta de la pantalla de espera | 10 s | Implementado |
+| Desplazamiento de la lista de espera | 45 px/s, pausa de 3 s | Implementado |
+| Límite total para enviar un pedido | 60 s, con aviso a los 15 s | Implementado |
 
 Los parámetros por venue (turnos, semáforo, meta, turno vencido, día operativo) viven en la pestaña VENUES.
 
@@ -191,7 +199,7 @@ Los parámetros por venue (turnos, semáforo, meta, turno vencido, día operativ
 | S3a | Backend parte 2a: turnos, cambio de estatus, cierre automático a 12 h, reinicio de demo | Cerrada |
 | S3b | Backend parte 2b: inventario, relleno y reabasto del KDS, idempotencia de turnos, `E_METHOD` | Cerrada |
 | S3c | Backend del dashboard: login por PIN, `venues`, `metricas`, `exportar_pedidos`, `atender_reabasto`; retirar el probador | Pendiente (antes de S9) |
-| S4–S5 | Kiosco | Pendiente (arranca cuando se abra la sesión, tras hablar con diseño) |
+| S4–S5 | Kiosco: identificación, menú, detalle, orden, envío, ticket, inactividad y pantalla de espera | Cerradas (08/10/2026) |
 | S6–S7 | KDS | Pendiente |
 | S8 | Estado | Pendiente |
 | S9 | Dashboard | Pendiente |
@@ -237,6 +245,12 @@ Los parámetros por venue (turnos, semáforo, meta, turno vencido, día operativ
 - Frecuencia del 404 en la última tanda: 3 de 7 envíos, todos recuperados. Los envíos con reintento tardaron 27.8, 42.6 y 53.5 s, contra 4.4 a 20.1 s sin 404.
 - Sin probar en real (cubierto por el simulador): `ping` aislado, `pausar` y `reanudar` repetidos, reabasto sin turno, producto inexistente, ventana de 5 minutos vencida y cruce entre sedes.
 
+**S4–S5 (cerradas, 08/10/2026)**
+- Backend simulado (`mock.js`, Playwright): 65 comprobaciones en 4 suites (identificación y menú).
+- Pruebas manuales en Chrome contra el backend real: esqueleto del menú, modal (apertura, límites, agotado con aviso rojo, cierre solo con el botón), orden (teclado numérico, 0 elimina, quitar línea, orden vacía), envío con ticket (número, idioma conservado, Finalizar y regreso a los 15 s), aviso de proceso a los 15 s y pantalla de espera con pedidos pendientes y totales.
+- Latencia observada en el envío del pedido: de 7 a 12 s con 13 unidades en 3 platillos (consultas normales de 2.2 a 2.5 s).
+- Por verificar en real antes del hito: red caída con reintento sin pedidos duplicados, `E_STOCK` al enviar, límite de 15 líneas, aviso de inactividad en cada pantalla y desplazamiento con muchos pedidos en la espera.
+
 ## 12. Riesgos
 - Política de Workspace que bloquee el acceso público al Apps Script (validado en S1, vigilar cambios).
 - Cuotas de Apps Script según la edición de Workspace (sin confirmar).
@@ -253,6 +267,8 @@ Los parámetros por venue (turnos, semáforo, meta, turno vencido, día operativ
 - Token y PIN no sustituyen autenticación real (producción).
 - Sheets como base limita volumen y concurrencia.
 - Caché de GitHub Pages y del reproductor.
+- Latencia de `crear_pedido`: de 7 a 12 s observados con 13 unidades; pendiente optimizar las escrituras por bloque.
+- La pantalla de espera depende de que el rol `kiosco` pueda leer `estado`; si pierde el permiso, solo muestra la invitación a ordenar.
 - Plan ajustado, sin colchón. S3c suma una sesión corta antes de S9.
 
 ## 13. Definition of Done por sección
@@ -266,3 +282,11 @@ Los parámetros por venue (turnos, semáforo, meta, turno vencido, día operativ
 - El menú lee el catálogo real y respeta el orden y las categorías de la hoja DB (hoy 7 categorías y 25 productos).
 - Navegación: botón de volver en identificación y menú. Desde el menú se conservan huésped y carrito; "No soy yo" vacía el carrito.
 - Fuera de S4, pasa a S5: pantalla de orden, envío del pedido, éxito, errores, inactividad, inglés completo.
+
+### v1.6 (08/10/2026)
+- S4 y S5 (kiosco) cerradas: identificación con edificio y habitación, menú con esqueleto y detalle del platillo, orden, envío del pedido, ticket, inactividad y pantalla de espera.
+- Inactividad: aviso a los 2 minutos (antes 60 s) con cuenta regresiva de 10 s; la portada pasa a la pantalla de espera a los 30 s.
+- La acción `estado` acepta también el rol `kiosco` (solo número y estatus).
+- Fotos de platillos de diseño integradas (se retira "fotos de platillos" de fuera de alcance).
+- El cliente (`api.js`) admite un tiempo total por petición (`limiteTotalMs`).
+- Decisiones: se descartan los selectores − y + de cantidad (se queda el teclado numérico); el modo silla de ruedas va al final y se pospone si no hay tiempo; el ajuste de pestañas para 8 o más categorías queda como post-demo, porque solo se usa el venue Bites.
