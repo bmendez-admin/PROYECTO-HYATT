@@ -7,6 +7,10 @@ import { iniciarNavegacion, ir, registrarPantalla } from './navegacion.js';
 import { construirPortada } from './pantallas/portada.js';
 import { construirIdentificacion } from './pantallas/identificacion.js';
 import { construirMenu } from './pantallas/menu.js';
+import { construirOrden } from './pantallas/orden.js';
+import { construirTicket } from './pantallas/ticket.js';
+import { iniciarInactividad } from './servicios/inactividad.js';
+import { construirEspera } from './pantallas/espera.js';
 
 const lienzo = document.getElementById('lienzo');
 
@@ -48,7 +52,10 @@ function arrancar() {
   registrarPantalla('portada', construirPortada);
   registrarPantalla('identificacion', construirIdentificacion);
   registrarPantalla('menu', construirMenu);
+  registrarPantalla('orden', construirOrden);
   registrarPantalla('error_config', construirErrorConfiguracion);
+  registrarPantalla('ticket', construirTicket);
+  registrarPantalla('espera', construirEspera);
 
   const parametros = leerParametros();
   if (!parametros) {
@@ -56,6 +63,7 @@ function arrancar() {
     return;
   }
   configurarApi({ rol: ROL, venueId: parametros.venueId, token: parametros.token });
+  iniciarInactividad(lienzo);
   ir('portada');
 }
 

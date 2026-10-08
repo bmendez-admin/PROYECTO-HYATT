@@ -1,0 +1,82 @@
+.pantalla--ticket {
+  grid-template-rows: 150px 1fr;
+}
+
+.ticket {
+  overflow: hidden;
+}
+
+.ticket__icono {
+  position: absolute;
+  top: 124px;
+  left: 439px;
+  width: 202px;
+  height: 132px;
+}
+
+.ticket__titulo {
+  position: absolute;
+  top: 354px;
+  right: 0;
+  left: 0;
+  padding-left: 0.3em;
+  color: var(--color-texto);
+  font-size: 48px;
+  font-weight: 400;
+  letter-spacing: 0.3em;
+  line-height: 60px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.ticket__titulo span {
+  display: block;
+}
+
+.ticket__numero {
+  position: absolute;
+  top: 574px;
+  right: 0;
+  left: 0;
+  color: var(--color-texto);
+  font-size: 280px;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+}
+
+.ticket__mensaje {
+  position: absolute;
+  top: 935px;
+  left: 160px;
+  width: 760px;
+  color: var(--color-texto);
+  font-size: 36px;
+  font-weight: 700;
+  line-height: 48px;
+  text-align: center;
+}
+
+.ticket__gracias {
+  position: absolute;
+  top: 1118px;
+  right: 0;
+  left: 0;
+  color: var(--color-texto);
+  font-size: 34px;
+  font-weight: 400;
+  line-height: 40px;
+  text-align: center;
+}
+
+.boton.ticket__finalizar {
+  position: absolute;
+  top: 1337px;
+  left: 233px;
+  width: 615px;
+  min-width: 615px;
+  height: 168px;
+  min-height: 168px;
+  font-size: 64px;
+  font-weight: 700;
+}

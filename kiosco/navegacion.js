@@ -26,6 +26,17 @@ export function ir(nombre) {
   mostrar(nombre);
 }
 
+export function irConFundido(nombre) {
+  const anterior = lienzo ? lienzo.firstElementChild : null;
+  mostrar(nombre);
+  if (!anterior || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  anterior.classList.add('pantalla--saliente');
+  lienzo.append(anterior);
+  const retirar = () => anterior.remove();
+  anterior.addEventListener('animationend', retirar, { once: true });
+  setTimeout(retirar, 1000);
+}
+
 export function pantallaActual() {
   return actual;
 }

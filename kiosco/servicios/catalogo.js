@@ -31,3 +31,8 @@ export function cargarCatalogo() {
   });
   return estado.pendiente;
 }
+
+export function refrescarCatalogo() {
+  estado.hora = 0;
+  return cargarCatalogo();
+}

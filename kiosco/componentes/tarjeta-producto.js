@@ -8,7 +8,7 @@ function construirIcono() {
   return icono;
 }
 
-function construirLienzo(producto) {
+export function construirLienzo(producto) {
   const lienzo = el('div', { clase: 'tarjeta__lienzo' });
   if (typeof producto.imagen !== 'string' || !PATRON_IMAGEN.test(producto.imagen)) {
     lienzo.append(construirIcono());
@@ -25,7 +25,7 @@ function construirLienzo(producto) {
   return lienzo;
 }
 
-export function construirTarjetaProducto(producto, { alAgregar }) {
+export function construirTarjetaProducto(producto, { alAgregar, alAbrir }) {
   const agotado = producto.agotado === true;
   const nombre = textoLocalizado(producto, 'nombre');
   return el(
@@ -42,12 +42,18 @@ export function construirTarjetaProducto(producto, { alAgregar }) {
           type: 'button',
           clase: 'tarjeta__agregar',
           'aria-label': t('agregar') + ' ' + nombre,
-          disabled: agotado,
+          'aria-disabled': agotado ? 'true' : null,
           onclick: () => alAgregar(producto)
         },
         el('span', { clase: 'tarjeta__mas', 'aria-hidden': 'true' })
       )
     ),
-    el('h2', { clase: 'tarjeta__nombre' }, el('span', { clase: 'tarjeta__nombre-texto', texto: nombre }))
+    el('h2', { clase: 'tarjeta__nombre' }, el('span', { clase: 'tarjeta__nombre-texto', texto: nombre })),
+    el('button', {
+      type: 'button',
+      clase: 'tarjeta__detalle',
+      'aria-label': t('ver_detalle') + ' ' + nombre,
+      onclick: () => alAbrir(producto)
+    })
   );
 }

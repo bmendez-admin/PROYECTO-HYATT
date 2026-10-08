@@ -8,7 +8,8 @@ const esObjeto = valor => valor !== null && typeof valor === 'object' && !Array.
 const VALIDADORES = {
   catalogo: d => esObjeto(d) && Array.isArray(d.productos) && esObjeto(d.limites) && esObjeto(d.venue),
   validar_cuarto: d => esObjeto(d) && typeof d.huesped_id === 'string' && typeof d.nombre_display === 'string',
-  crear_pedido: d => esObjeto(d) && typeof d.pedido_id === 'string' && d.numero !== undefined
+  crear_pedido: d => esObjeto(d) && typeof d.pedido_id === 'string' && d.numero !== undefined,
+  estado: d => esObjeto(d) && Array.isArray(d.en_proceso) && Array.isArray(d.listo)
 };
 
 let contexto = null;
@@ -32,9 +33,9 @@ export function nuevoRequestId() {
 
 const esperar = ms => new Promise(resolver => setTimeout(resolver, ms));
 
-async function intentar(cuerpo) {
+async function intentar(cuerpo, limiteMs) {
   const control = new AbortController();
-  const temporizador = setTimeout(() => control.abort(), TIMEOUT_MS);
+  const temporizador = setTimeout(() => control.abort(), limiteMs);
   let respuesta;
   try {
     respuesta = await fetch(API_URL, {
@@ -73,14 +74,20 @@ export async function llamar(accion, datos = {}, opciones = {}) {
     token: contexto.token
   });
   const validar = VALIDADORES[accion];
+  const total = Number.isFinite(opciones.limiteTotalMs) ? opciones.limiteTotalMs : Infinity;
+  const inicio = Date.now();
   let ultimoError = new ErrorRed('red');
   for (let intento = 0; intento <= ESPERAS_MS.length; intento++) {
     if (intento > 0) {
+      const espera = ESPERAS_MS[intento - 1];
+      if (Date.now() - inicio + espera >= total) break;
       if (opciones.alReintentar) opciones.alReintentar(intento);
-      await esperar(ESPERAS_MS[intento - 1]);
+      await esperar(espera);
     }
+    const limite = Math.min(TIMEOUT_MS, total - (Date.now() - inicio));
+    if (limite <= 0) break;
     try {
-      const json = await intentar(cuerpo);
+      const json = await intentar(cuerpo, limite);
       if (json.ok) {
         if (validar && !validar(json.data)) {
           ultimoError = new ErrorRed('formato');

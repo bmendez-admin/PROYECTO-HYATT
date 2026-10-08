@@ -1,0 +1,64 @@
+.inactividad {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 22, 35, 0.58);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.inactividad__tarjeta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 876px;
+  padding: 72px 64px 64px;
+  border-radius: 32px;
+  background: #ffffff;
+  text-align: center;
+}
+
+.inactividad__titulo {
+  margin: 0;
+  color: var(--color-texto);
+  font-size: 64px;
+  font-weight: 700;
+  line-height: 76px;
+}
+
+.inactividad__texto {
+  margin: 32px 0 0;
+  color: var(--color-texto);
+  font-size: 38px;
+  font-weight: 600;
+  line-height: 50px;
+}
+
+.inactividad__numero {
+  margin: 16px 0 0;
+  color: var(--color-accion);
+  font-size: 180px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.inactividad__unidad {
+  margin: 8px 0 0;
+  color: var(--color-texto-ayuda);
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 42px;
+}
+
+.boton.inactividad__boton {
+  width: 560px;
+  min-width: 560px;
+  height: 120px;
+  min-height: 120px;
+  margin-top: 56px;
+  font-size: 48px;
+  font-weight: 700;
+}

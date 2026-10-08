@@ -1,6 +1,7 @@
 import { el, imagen } from '../../shared/dom.js';
 import { t, textoLocalizado } from '../../shared/i18n.js';
 import { construirEncabezado } from '../componentes/encabezado.js';
+import { construirModalProducto } from '../componentes/modal-producto.js';
 import { construirTarjetaProducto } from '../componentes/tarjeta-producto.js';
 import { RUTAS } from '../config.js';
 import { sesion } from '../estado.js';
@@ -10,11 +11,16 @@ import { cargarCatalogo, catalogoActual, catalogoVigente } from '../servicios/ca
 
 const ESPERA_LENTA_MS = 10000;
 const DURACION_AVISO_MS = 2500;
-const AVISOS = { max_producto: 'aviso_max_producto', max_total: 'aviso_max_total' };
+const AVISOS = {
+  max_producto: 'aviso_max_producto',
+  max_total: 'aviso_max_total',
+  max_lineas: 'aviso_max_lineas',
+  agotado: 'aviso_agotado'
+};
 const CATEGORIAS_ESQUELETO = 7;
 const TARJETAS_ESQUELETO = 6;
 
-const ui = { generacion: -1, categoria: '', error: false, lento: false, esperando: false };
+const ui = { generacion: -1, categoria: '', detalle: '', error: false, lento: false, esperando: false };
 let refs = null;
 let temporizadorLento = null;
 let temporizadorAviso = null;
@@ -24,6 +30,7 @@ function restablecerUi() {
   clearTimeout(temporizadorAviso);
   ui.generacion = sesion.generacion;
   ui.categoria = '';
+  ui.detalle = '';
   ui.error = false;
   ui.lento = false;
   ui.esperando = false;
@@ -64,7 +71,7 @@ function pintarCatalogo(datos) {
   refs.cuadricula.replaceChildren(
     ...datos.productos
       .filter(producto => producto.categoria_es === ui.categoria)
-      .map(producto => construirTarjetaProducto(producto, { alAgregar: agregar }))
+      .map(producto => construirTarjetaProducto(producto, { alAgregar: agregar, alAbrir: abrirDetalle }))
   );
   refs.cuadricula.scrollTop = mismaCategoria ? desplazamiento : 0;
   refs.categoriaPintada = ui.categoria;
@@ -126,6 +133,25 @@ function pintarGlobo() {
   refs.orden.setAttribute('aria-label', t('orden_aria') + ': ' + total);
 }
 
+function pintarModal() {
+  const datos = catalogoActual();
+  if (!datos) return;
+  const producto = ui.detalle ? datos.productos.find(item => item.producto_id === ui.detalle) : null;
+  if (ui.detalle && !producto) ui.detalle = '';
+  if (refs.modalPintado === ui.detalle) return;
+  refs.modalPintado = ui.detalle;
+  if (!producto) {
+    refs.modal = null;
+    refs.modalAnfitrion.replaceChildren();
+    return;
+  }
+  refs.modal = construirModalProducto(producto, {
+    alOrdenar: () => ordenar(producto),
+    alCerrar: cerrarDetalle
+  });
+  refs.modalAnfitrion.replaceChildren(refs.modal.nodo);
+}
+
 function actualizar() {
   if (!refs || pantallaActual() !== 'menu') return;
   const datos = catalogoActual();
@@ -138,6 +164,7 @@ function actualizar() {
   if (datos) {
     quitarCarga();
     pintarCatalogo(datos);
+    pintarModal();
   } else if (fallo) {
     pintarEstado();
   } else {
@@ -183,21 +210,54 @@ function elegirCategoria(clave) {
   pintarCatalogo(datos);
 }
 
-function mostrarAviso(clave) {
+function mostrarAviso(texto, tipo) {
   clearTimeout(temporizadorAviso);
-  refs.aviso.textContent = t(clave);
+  refs.aviso.className = 'menu__aviso' + (tipo ? ' menu__aviso--' + tipo : '');
+  refs.aviso.textContent = texto;
   refs.aviso.hidden = false;
   temporizadorAviso = setTimeout(() => {
     if (refs) refs.aviso.hidden = true;
   }, DURACION_AVISO_MS);
 }
 
-function agregar(producto) {
+function intentarAgregar(producto) {
   const datos = catalogoActual();
-  if (!datos) return;
+  if (!datos) return null;
   const resultado = agregarAlCarrito(producto, datos.limites);
   if (resultado === 'ok') pintarGlobo();
-  else if (AVISOS[resultado]) mostrarAviso(AVISOS[resultado]);
+  return resultado;
+}
+
+function avisarResultado(producto, resultado) {
+  if (resultado === 'ok') {
+    mostrarAviso(textoLocalizado(producto, 'nombre') + ' — ' + t('aviso_agregado'), 'ok');
+  } else if (AVISOS[resultado]) {
+        mostrarAviso(t(AVISOS[resultado]), 'alerta');
+  }
+}
+
+function agregar(producto) {
+  avisarResultado(producto, intentarAgregar(producto));
+}
+
+function abrirDetalle(producto) {
+  ui.detalle = producto.producto_id;
+  pintarModal();
+}
+
+function cerrarDetalle() {
+  ui.detalle = '';
+  pintarModal();
+}
+
+function ordenar(producto) {
+  const resultado = intentarAgregar(producto);
+  if (resultado === 'ok') {
+    cerrarDetalle();
+    avisarResultado(producto, resultado);
+  } else if (AVISOS[resultado] && refs.modal) {
+    refs.modal.avisar(t(AVISOS[resultado]));
+  }
 }
 
 export function construirMenu() {
@@ -205,8 +265,8 @@ export function construirMenu() {
 
   const globo = el('span', { clase: 'menu__globo', hidden: true });
   const orden = el(
-    'div',
-    { clase: 'menu__orden', role: 'img' },
+    'button',
+    { type: 'button', clase: 'menu__orden', onclick: () => ir('orden') },
     imagen(RUTAS.iconoOrden, { clase: 'menu__orden-icono', contener: true }),
     globo
   );
@@ -222,6 +282,7 @@ export function construirMenu() {
   const estado = el('div', { clase: 'menu__estado', hidden: true }, estadoTexto, reintentarBoton);
   const lento = el('p', { clase: 'menu__lento', role: 'status', hidden: true });
   const aviso = el('p', { clase: 'menu__aviso', role: 'status', hidden: true });
+  const modalAnfitrion = el('div', { clase: 'modal-anfitrion' });
 
   refs = {
     categorias,
@@ -234,7 +295,10 @@ export function construirMenu() {
     lento,
     orden,
     globo,
-    aviso
+    aviso,
+    modalAnfitrion,
+    modal: null,
+    modalPintado: ''
   };
 
   const pantalla = el(
@@ -251,7 +315,8 @@ export function construirMenu() {
       estado,
       lento,
       aviso
-    )
+    ),
+    modalAnfitrion
   );
 
   queueMicrotask(() => {
