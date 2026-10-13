@@ -65,6 +65,7 @@ function aplicarRelleno(venueId, requestId, chefId, productoId, cantidad) {
   const movId = 'MOV-REL-' + requestId;
   const previo = leerTabla(HOJAS.INVENTARIO).find(m => m.mov_id === movId && m.venue_id === venueId);
   if (previo) {
+    // Reintento tras una respuesta perdida: el relleno ya se registró, no se suma otra vez.
     const actual = leerFilasConPosicion(HOJAS.DB).find(
       p => p.datos.producto_id === previo.producto_id && p.datos.venue_id === venueId
     );
@@ -83,6 +84,7 @@ function aplicarRelleno(venueId, requestId, chefId, productoId, cantidad) {
   const producto = buscarProductoActivo(venueId, productoId);
   const nuevoStock = Number(producto.datos.stock_actual) + cantidad;
 
+  // Primero el movimiento (es la marca de idempotencia) y después el stock. Si falla a la mitad, el stock queda corto, nunca de más.
   agregarFilas(HOJAS.INVENTARIO, [[movId, venueId, productoId, 'relleno', cantidad, nuevoStock, ahora, 'chef:' + chefId]]);
   obtenerHoja(HOJAS.DB).getRange(producto.fila, indiceColumna(HOJAS.DB, 'stock_actual') + 1, 1, 1).setValues([[nuevoStock]]);
   invalidarCache(venueId);

@@ -1,6 +1,6 @@
 # Documentación técnica: Kiosco Hyatt Breathless
 
-Actualizada al cierre de S5 · 08/10/2026
+Actualizada al cierre de la sesión del 12/10/2026 (S6a)
 
 ## 1. Arquitectura
 - **Front:** HTML, CSS y JS (módulos ES) en GitHub Pages. Sin build.
@@ -24,7 +24,7 @@ Los `.gs` del repo deben ser idénticos a los del editor de Apps Script.
 | utilidades | Errores, respuestas, lectura y escritura de hojas, validación, caché (la invalidación incluye `inventario_<venue>`), lock y LOG |
 | seguridad | Hash, tokens, validación, límite de frecuencia, `generarTokens` y `aplicarPin` |
 | DatosDemo | Venues, menú de Bites, apellidos, chefs y generación de huéspedes |
-| setup | `setup()` (crea o verifica pestañas, migra encabezados y siembra datos demo; idempotente) y `reiniciarDemo()` (solo desde el editor) |
+| setup | `setup()` (crea o verifica pestañas, migra encabezados y siembra datos demo; idempotente) `reiniciarDemo()` y `reiniciarChefs()` (solo desde el editor) |
 | main | Lista blanca de acciones, autenticación, `doPost` y `doGet` (responde `E_METHOD`) |
 | pedidos | Consultas de pedidos, items, chefs, búsqueda por `request_id` y número siguiente |
 | Filas | Lectura y escritura de filas por posición, conversión fila-objeto, antigüedad de fechas |
@@ -50,9 +50,9 @@ Los `.gs` del repo deben ser idénticos a los del editor de Apps Script.
 | catalogo | kiosco | — | Productos con `agotado`, `disponible_max` y etiquetas; datos del venue; límites; `hora_servidor` |
 | validar_cuarto | kiosco | `cuarto` | Datos mínimos para confirmar identidad (id y nombre mostrado) |
 | crear_pedido | kiosco | `request_id`, `huesped_id`, `items` | `{pedido_id, numero, duplicado}` |
-| cola | kds | — | `{venue_id, hora_servidor, parametros{semaforo_amarillo_min, semaforo_rojo_min, meta_espera_min, turnos_activos_max}, chefs[{chef_id, nombre, turno: activo\|pausa\|ninguno}], pedidos[{pedido_id, numero, estatus, hora_llegada, hora_en_preparacion, hora_completo, chef_id, chef_nombre, items}]}`. Sin cuarto ni huésped |
-| iniciar_turno | kds | `chef_id` | `{turno_id, chef_id, estado, hora_inicio, repetido}` |
-| pausar_turno | kds | `chef_id` | `{turno_id, chef_id, estado, repetido}` |
+| cola | kds | — | `{venue_id, hora_servidor, parametros{semaforo_amarillo_min, semaforo_rojo_min, meta_espera_min, turnos_activos_max}, chefs[{chef_id, nombre, avatar: h\|m, turno: activo\|pausa\|ninguno, pausa_tipo: corto\|comida\|vacío, pausa_desde (ISO o vacío)}], pedidos[{pedido_id, numero, estatus, hora_llegada, hora_en_preparacion, hora_completo, chef_id, chef_nombre, items[{producto_id, nombre_es, cantidad, imagen}]}]}`. `imagen` vacía si el producto no tiene foto. Sin cuarto ni huésped |
+| iniciar_turno | kds | `chef_id`, `codigo` (6 dígitos). Código ausente o mal formado: `E_VALIDATION`; incorrecto: `E_NOT_FOUND`; 5 fallos del mismo chef: `E_RATE` por 60 s | `{turno_id, chef_id, estado, hora_inicio, repetido}` |
+| pausar_turno | kds | `chef_id`, `tipo` opcional (`corto` por defecto, o `comida`; otro valor: `E_VALIDATION`) | `{turno_id, chef_id, estado, repetido, tipo}` |
 | reanudar_turno | kds | `chef_id` | `{turno_id, chef_id, estado, repetido}` |
 | cerrar_turno | kds | `chef_id` | `{turno_id, chef_id, estado, repetido}` |
 | cambiar_estatus | kds | `pedido_id`, `transicion`, `chef_id`, `motivo` (solo `cancelar`) | `{pedido_id, estatus, chef_id, repetido}` |
@@ -142,7 +142,10 @@ Solo `E_AUTH` y `E_INTERNAL` se escriben en LOG.
 Implementar → Administrar implementaciones → lápiz → Nueva versión. Así se conserva la misma URL. Para comprobar `doGet`, abrir la URL `/exec` en una pestaña: debe mostrar `{"ok":false,"code":"E_METHOD"}`.
 
 **Reiniciar la demo**
-Desde el editor, ejecutar `reiniciarDemo()`. Limpia KIOSCO, PEDIDO_ITEMS, KDS, TURNOS, REABASTO, INVENTARIO y DB y vuelve a sembrar datos demo con el stock inicial. No toca LOG ni los tokens. No es accesible por la API.
+Desde el editor, ejecutar `reiniciarDemo()`. Limpia KIOSCO, PEDIDO_ITEMS, KDS, TURNOS, REABASTO, INVENTARIO, DB y CHEFS, vuelve a sembrar datos demo con el stock inicial y borra los bloqueos de cuarto y de chef. No toca LOG ni los tokens. No es accesible por la API.
+
+**Reponer solo los chefs**
+Ejecutar `setup()` y después `reiniciarChefs()`. Limpia TURNOS y CHEFS y siembra los 6 chefs demo (nombres, avatar y códigos en `DatosDemo.gs`). No toca pedidos ni stock. Necesario porque `setup()` no resiembra una hoja que ya tiene datos.
 
 **Probar con `spike/probador.html`**
 1. Pegar la URL `/exec`, elegir la acción (se llenan el rol y un JSON de ejemplo) y pegar el token del rol. Al cambiar de rol hay que cambiar también el token.
@@ -163,6 +166,8 @@ Los pedidos y movimientos de prueba quedan en KIOSCO, KDS, PEDIDO_ITEMS, INVENTA
 - Cuotas de Apps Script según la edición de Workspace, sin confirmar.
 
 ## 10. Pendiente
+- **KDS (frontend):** pantalla horizontal con selección de responsable, ingreso con código, fila, pedido activo, despachados, pausas, cancelación y avisos (14/10). Validadores de `cola`, turnos y `cambiar_estatus` ya están en `shared/api.js`.
+- **Estado (frontend)** el 15/10. **Dashboard (S3c y S9) pospuesto** a después de la presentación.
 - **S3c (antes de S9):** login del dashboard con PIN (sesión de hasta 6 h, bloqueo de 5 min tras 5 intentos), `venues`, `metricas`, `exportar_pedidos` y `atender_reabasto`. Verificar antes que exista `PIN_HASH` en Propiedades del script.
 - Retirar `spike/probador.html` al cerrar S3c.
 - Probar en real `ping` aislado, y `pausar` y `reanudar` repetidos.
@@ -234,3 +239,9 @@ Iconos de diseño en PNG: `assets/iconos/{agregar,avanzar,edificio,eliminar,habi
 ## Pruebas
 - Chromium con Playwright contra un backend simulado (`mock.js`); 65 comprobaciones en 4 suites (identificación y menú).
 - Pruebas manuales en Chrome contra el backend real el 08/10/2026 para el modal, la orden, el envío con ticket, el aviso de proceso a los 15 s y la pantalla de espera. Pedidos de prueba: ejecutar `reiniciarDemo()` antes de la demo.
+
+## KDS (backend, S6a)
+- Código del chef en texto claro en la hoja CHEFS (demo, sin identificación real); la comparación y el bloqueo (`chef_bloqueo_<venue>_<chef>` en CacheService, 5 fallos por 60 s) viven en `Turnos.gs`.
+- `TURNOS.tipo_pausa` se escribe al pausar y se limpia al reanudar, cerrar o vencer el turno.
+- `cola` junta los items con la hoja DB para entregar `imagen`; las pruebas del backend cubren código, bloqueo, tipos de pausa, imagen y migración de encabezados.
+- Reglas de pantalla ya acordadas: un pedido activo por chef, sin inventario ni botón "+" en el KDS.

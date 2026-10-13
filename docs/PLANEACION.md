@@ -1,14 +1,14 @@
 # Planeación: Kiosco de pedidos Hyatt Breathless (demo con ruta a producto)
 
-Versión 1.6 · 08/10/2026 · Regida por REQUISITOS_DE_PROMPT.md
+Versión 1.7 · 12/10/2026 · Regida por REQUISITOS_DE_PROMPT.md
 
 ## 1. Contexto y alcance
 - **Cliente:** Breathless Resorts & Spas (Hyatt Inclusive Collection). Resort solo adultos, todo incluido.
 - **Venue inicial:** Bites (Riviera Cancún, por confirmar). Modelo multi-venue: Bites, Barefoot Grill y The Nook Café.
 - **Objetivo:** el huésped pide desde un kiosco, espera su número en una pantalla, el chef lo prepara desde una tablet, y un dashboard informa la operación.
-- **Entregables:** 1 kiosco, 1 KDS (2 chefs simultáneos, 1 tablet cada uno), 1 pantalla de Estado y 1 dashboard.
+- **Entregables de la demo:** 1 kiosco, 1 KDS (2 chefs simultáneos, 1 tablet cada uno) y 1 pantalla de Estado. El dashboard se pospone a después de la presentación (se retoma antes si directiva concede más días).
 - **Fuera de alcance:** pagos, notas por pedido, puntos o ranking de chefs, notificaciones externas (correo o WhatsApp), reinicio diario de stock.
-- **Plazo:** 10 sesiones (máximo 2 semanas).
+- **Plazo:** fecha límite firme el 16/10/2026. Días de trabajo: 13, 14, 15 y 16, con 6 horas diarias.
 
 ## 2. Stack y despliegue
 - HTML, CSS y JS modular (módulos ES nativos), sin build, alojado solo en GitHub Pages (repo `bmendez-admin/PROYECTO-HYATT`, rama `main`, Pages desde la raíz).
@@ -41,15 +41,15 @@ Versión 1.6 · 08/10/2026 · Regida por REQUISITOS_DE_PROMPT.md
 | KDS | pedido_id, numero, venue_id, hora_llegada, estatus, chef_id, hora_en_preparacion, hora_completo, hora_recibido, hora_cancelado, motivo_cancelacion |
 | INVENTARIO | mov_id, venue_id, producto_id, tipo (inicial, relleno, consumo, devolucion, ajuste), cantidad, stock_resultante, hora, responsable |
 | REABASTO | solicitud_id, venue_id, producto_id, cantidad, chef_id, hora_solicitud, estatus (pendiente, atendido), atendido_por, hora_atencion |
-| CHEFS | chef_id, nombre, activo |
-| TURNOS | turno_id, venue_id, chef_id, hora_inicio, hora_fin, estado (activo, pausa, cerrado), minutos_pausa, motivo_cierre (manual, vencido), hora_pausa |
+| CHEFS | chef_id, nombre, activo, avatar (h o m), codigo (6 dígitos, demo) |
+| TURNOS | turno_id, venue_id, chef_id, hora_inicio, hora_fin, estado (activo, pausa, cerrado), minutos_pausa, motivo_cierre (manual, vencido), hora_pausa, tipo_pausa (corto, comida) |
 | LOG | timestamp, accion, rol, venue_id, codigo_error, detalle_interno |
 
 - El estatus vive **solo en KDS**.
 - Prioridad si hay que recortar: REABASTO y LOG se posponen primero.
 - Número de pedido secuencial por venue y por día operativo. `pedido_id` = `<venue>-<yyyymmdd>-<nnn>`.
 - El stock se descuenta al crear el pedido (INVENTARIO tipo `consumo`, responsable `pedido:<id>`) y se devuelve si se cancela (tipo `devolucion`, responsable `cancelacion:<id>`). Los rellenos se registran como tipo `relleno`, responsable `chef:<chef_id>`.
-- Datos demo: 3 venues (zona `America/Cancun`), menú solo para Bites (13 productos), 40 cuartos en 2 edificios de 4 pisos con 5 cuartos por piso (50 % ocupados, apellidos ficticios) y 3 chefs.
+- Datos demo: 3 venues (zona `America/Cancun`), menú solo para Bites (13 productos), 40 cuartos en 2 edificios de 4 pisos con 5 cuartos por piso (50 % ocupados, apellidos ficticios) y 6 chefs.
 
 ### 4.2 Estatus y transiciones
 Estatus: `pendiente`, `en_preparacion`, `completo`, `recibido`, y `cancelado` (interno).
@@ -130,11 +130,15 @@ Respuesta: `{ok:true,data}` o `{ok:false,code[,data]}`. Códigos: E_VALIDATION, 
 - **Modos pendientes:** horizontal y silla de ruedas (contenido bajado, texto grande), cuando haya referencias de diseño. Silla de ruedas solo si sobra tiempo.
 
 ## 6. KDS
-- **Vista:** tres columnas (Pendientes, En preparación, Completos). Una acción principal por tarjeta: Tomar, Completar o Entregado. El chef trabaja solo con número y platillos.
-- **Cancelar:** modal propio con motivo de lista fija (Sin ingredientes, Pedido duplicado, Huésped canceló, Otro).
-- **Turnos:** el chef elige su nombre entre los no activos. Máximo 2 por venue (activos y en pausa). Pausa y cierre bloqueados si tiene pedidos en preparación (debe completarlos o liberarlos). Turnos vencidos (12 h) se cierran solos.
-- **Inventario:** panel ordenado por stock, con Relleno y Solicitar reabasto. Banner de alerta al llegar al mínimo, solo si hay chef con turno activo.
-- **Resiliencia:** tiempos con hora del servidor, banner y acciones deshabilitadas tras 30 s sin conexión, aviso de conflicto si otro chef ya tomó el pedido. Reintento seguro ante respuestas perdidas (`repetido: true` y `duplicado: true` se tratan como éxito). Sonido de pedido nuevo, habilitado al iniciar turno.
+- **Pantalla horizontal 1920×1080,** solo en español, una tablet por chef. Referencias de diseño en revisión por directiva: solo cambia la estética, no el flujo.
+- **Responsable de cocina:** 6 chefs en tarjetas (3 columnas × 2 filas) con avatar masculino o femenino. Los que tienen turno abierto en otra tablet aparecen bloqueados. Sin agregar ni eliminar personas.
+- **Ingreso:** código personal de 6 dígitos con teclado numérico, validado por el servidor (error genérico y bloqueo de 60 s tras 5 fallos). El código es de demostración, sin identificación real.
+- **Pantalla principal:** tres columnas. Fila de pedidos (pendientes, "Comenzar"), pedido activo (**uno solo por chef**, con fotos de los platillos, "Pedido listo" y "Cancelar pedido") y Despachados (completos, "Despachar" = recibido). Sin botón "+" ni panel de inventario en la interfaz.
+- **Pausas:** botón BREAK con dos tipos (Break corto y Hora de comida) y botón Finalizar jornada. Pausa y cierre bloqueados si el chef tiene un pedido en preparación.
+- **Cancelar:** modal con motivo de lista fija (Sin ingredientes, Pedido duplicado, Huésped canceló, Otro).
+- **Turnos:** máximo 2 por venue (activos y en pausa). Turnos vencidos (12 h) se cierran solos.
+- **Resiliencia:** tiempos con hora del servidor, banner y acciones deshabilitadas tras 30 s sin conexión, aviso de conflicto si otro chef ya tomó el pedido. Reintento seguro ante respuestas perdidas (`repetido: true` se trata como éxito). Semáforo de espera discreto y sonido simple de pedido nuevo. Consulta de `cola` cada 5 s.
+- **Fuera del KDS de la demo:** inventario, relleno y reabasto (el backend los conserva), "revertir" de 60 s si falta tiempo.
 - **Pedidos de días anteriores:** resuelto. Se cierran solos a las 12 h (ver 4.2).
 
 ## 7. Estado de pedido
@@ -200,10 +204,11 @@ Los parámetros por venue (turnos, semáforo, meta, turno vencido, día operativ
 | S3b | Backend parte 2b: inventario, relleno y reabasto del KDS, idempotencia de turnos, `E_METHOD` | Cerrada |
 | S3c | Backend del dashboard: login por PIN, `venues`, `metricas`, `exportar_pedidos`, `atender_reabasto`; retirar el probador | Pendiente (antes de S9) |
 | S4–S5 | Kiosco: identificación, menú, detalle, orden, envío, ticket, inactividad y pantalla de espera | Cerradas (08/10/2026) |
-| S6–S7 | KDS | Pendiente |
-| S8 | Estado | Pendiente |
-| S9 | Dashboard | Pendiente |
-| S10 | Seguridad, QA, despliegue en ADMIRA y documentación | Pendiente |
+| S6a | Backend del KDS: código de chef, 6 chefs con avatar, tipo de pausa, imagen en la cola | Cerrada (09/10/2026) |
+| S6–S7 | KDS | Pendiente (14/10) |
+| S8 | Estado | Pendiente (15/10) |
+| S9 | Dashboard | Pospuesto a después de la presentación |
+| S10 | Seguridad, QA, despliegue en ADMIRA y documentación | Pendiente (16/10) |
 
 ## 11. Pruebas técnicas
 **S1 (cerrada)**
@@ -269,7 +274,18 @@ Los parámetros por venue (turnos, semáforo, meta, turno vencido, día operativ
 - Caché de GitHub Pages y del reproductor.
 - Latencia de `crear_pedido`: de 7 a 12 s observados con 13 unidades; pendiente optimizar las escrituras por bloque.
 - La pantalla de espera depende de que el rol `kiosco` pueda leer `estado`; si pierde el permiso, solo muestra la invitación a ordenar.
-- Plan ajustado, sin colchón. S3c suma una sesión corta antes de S9.
+- Plan ajustado, sin colchón. S3c y S9 quedan fuera de la demo.
+
+### Calendario de entrega (12/10/2026)
+| Día | Foco | Entregable |
+|---|---|---|
+| Mar 13 | Rediseño visual del kiosco con los diseños nuevos y lista de verificación pendiente; si sobra tiempo, revisar diseños del KDS y Estado | Kiosco con el estilo nuevo verificado |
+| Mié 14 | KDS completo (S6 y S7) | KDS funcional con el estilo nuevo |
+| Jue 15 | Resto del backend (revisar `ApiEstado.gs`, publicar versión final, optimizar `crear_pedido` si hay código) y pantalla de Estado | Estado funcionando y tres flujos conectados |
+| Vie 16 | Pruebas de punta a punta, correcciones, revisión de seguridad, documentación y envío del equipo completo | Entrega |
+
+- Dependencia crítica: los diseños nuevos de kiosco, KDS y Estado (se esperan el 13/10). Si llegan tarde, el martes se avanza la lógica del KDS sin estilo.
+- Si directiva concede más días, se usan primero como colchón y después para el dashboard.
 
 ## 13. Definition of Done por sección
 - Casos de prueba de la sección pasan.
@@ -290,3 +306,9 @@ Los parámetros por venue (turnos, semáforo, meta, turno vencido, día operativ
 - Fotos de platillos de diseño integradas (se retira "fotos de platillos" de fuera de alcance).
 - El cliente (`api.js`) admite un tiempo total por petición (`limiteTotalMs`).
 - Decisiones: se descartan los selectores − y + de cantidad (se queda el teclado numérico); el modo silla de ruedas va al final y se pospone si no hay tiempo; el ajuste de pestañas para 8 o más categorías queda como post-demo, porque solo se usa el venue Bites.
+
+### v1.7 (12/10/2026)
+- S6a cerrada: backend del KDS con código de 6 dígitos por chef (bloqueo de 60 s tras 5 fallos), 6 chefs con avatar, tipo de pausa (corto o comida) y foto de cada platillo en la cola.
+- Decisiones del KDS: sin agregar ni eliminar personas, sin botón "+" ni inventario en la interfaz, un pedido activo por chef.
+- Directiva pidió cambios solo estéticos en kiosco, KDS y Estado; los diseños nuevos llegan el 13/10.
+- Dashboard (S3c y S9) pospuesto a después de la presentación. Plazo firme el 16/10, con 4 días de 6 horas.
