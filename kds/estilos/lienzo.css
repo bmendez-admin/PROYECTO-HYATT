@@ -1,0 +1,31 @@
+:root {
+  --lienzo-ancho: 1920px;
+  --lienzo-alto: 1080px;
+}
+
+.pantalla {
+  display: block;
+  grid-template-rows: none;
+  overflow: hidden;
+}
+
+.error-config {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 0 160px;
+  background: var(--color-encabezado);
+  text-align: center;
+}
+
+.error-config__titulo {
+  font-size: 64px;
+  font-weight: 800;
+}
+
+.error-config__detalle {
+  font-size: 40px;
+  font-weight: 400;
+}

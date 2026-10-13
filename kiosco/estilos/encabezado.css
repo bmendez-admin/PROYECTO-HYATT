@@ -59,3 +59,150 @@
   -webkit-mask: url('../../assets/iconos/retroceder.png') center / contain no-repeat;
   mask: url('../../assets/iconos/retroceder.png') center / contain no-repeat;
 }
+
+.encabezado--menu .encabezado__atras {
+  position: absolute;
+  top: 24px;
+  left: 22px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 104px;
+  height: 102px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--color-texto);
+  cursor: pointer;
+}
+
+.encabezado__atras:active {
+  background: rgba(176, 39, 127, 0.12);
+}
+
+.encabezado__atras:focus-visible,
+.interruptor-idioma:focus-visible {
+  outline: 6px solid var(--color-foco);
+  outline-offset: 2px;
+}
+
+.encabezado__atras-icono {
+  width: 26px;
+  height: 38px;
+  background: var(--color-accion);
+  -webkit-mask: url('../../assets/iconos/retroceder.png') center / contain no-repeat;
+  mask: url('../../assets/iconos/retroceder.png') center / contain no-repeat;
+}
+
+.encabezado__atras-texto {
+  font-family: var(--fuente);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.interruptor-idioma {
+  position: absolute;
+  top: 24px;
+  left: 148px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 124px;
+  height: 102px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--color-texto);
+  cursor: pointer;
+}
+
+.interruptor-idioma__texto {
+  font-family: var(--fuente);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1;
+}
+
+.interruptor-idioma__pista {
+  position: relative;
+  display: block;
+  width: 84px;
+  height: 44px;
+  border-radius: 22px;
+  background: var(--color-volver);
+  transition: background-color 160ms ease;
+}
+
+.interruptor-idioma__perilla {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+  transition: transform 160ms ease;
+}
+
+.interruptor-idioma--en .interruptor-idioma__pista {
+  background: var(--color-accion);
+}
+
+.interruptor-idioma--en .interruptor-idioma__perilla {
+  transform: translateX(40px);
+}
+
+.encabezado__division {
+  position: absolute;
+  top: 38px;
+  left: 298px;
+  width: 2px;
+  height: 74px;
+  background: #cfcac4;
+}
+
+.encabezado__ubicacion {
+  position: absolute;
+  top: 44px;
+  left: 326px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 372px;
+}
+
+.encabezado__lugar {
+  color: var(--color-texto);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.encabezado__hora {
+  color: var(--color-texto-ayuda);
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  line-height: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .interruptor-idioma__pista,
+  .interruptor-idioma__perilla {
+    transition: none;
+  }
+}

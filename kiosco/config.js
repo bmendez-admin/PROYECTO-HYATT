@@ -11,7 +11,16 @@ export const RUTAS = {
   iconoHabitacion: '../assets/iconos/habitacion.png',
   iconoPersona: '../assets/iconos/persona.png',
   iconoOrden: '../assets/iconos/platter.png',
-  productos: '../assets/productos/'
+  productos: '../assets/productos/',
+  iconosCategoria: {
+    Desayunos: '../assets/iconos/cat-desayunos.png',
+    Entradas: '../assets/iconos/cat-entradas.png',
+    Ensaladas: '../assets/iconos/cat-ensaladas.png',
+    'Carnes y aves': '../assets/iconos/cat-carnes.png',
+    'Pescados y mariscos': '../assets/iconos/cat-pescados.png',
+    Bebidas: '../assets/iconos/cat-bebidas.png',
+    Postres: '../assets/iconos/cat-postres.png'
+  }
 };
 
 export const EXTENSION_PRODUCTO = '.jpg';

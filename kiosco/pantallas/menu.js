@@ -1,6 +1,6 @@
 import { el, imagen } from '../../shared/dom.js';
 import { t, textoLocalizado } from '../../shared/i18n.js';
-import { construirEncabezado } from '../componentes/encabezado.js';
+import { construirEncabezadoMenu } from '../componentes/encabezado-menu.js';
 import { construirModalProducto } from '../componentes/modal-producto.js';
 import { construirTarjetaProducto } from '../componentes/tarjeta-producto.js';
 import { RUTAS } from '../config.js';
@@ -44,18 +44,46 @@ function listarCategorias(datos) {
   return Array.from(vistas, ([clave, producto]) => ({ clave, nombre: textoLocalizado(producto, 'categoria') }));
 }
 
+function construirIconoCategoria(clave) {
+  const icono = el('img', {
+    clase: 'categoria__icono',
+    src: RUTAS.iconosCategoria[clave] || RUTAS.iconoOrden,
+    alt: '',
+    draggable: 'false'
+  });
+  icono.addEventListener(
+    'error',
+    () => {
+      icono.src = RUTAS.iconoOrden;
+    },
+    { once: true }
+  );
+  return icono;
+}
+
 function pintarCategorias(lista) {
   refs.categorias.replaceChildren(
     ...lista.map(categoria =>
-      el('button', {
-        type: 'button',
-        clase: 'categoria' + (categoria.clave === ui.categoria ? ' categoria--activa' : ''),
-        'aria-pressed': categoria.clave === ui.categoria ? 'true' : 'false',
-        texto: categoria.nombre,
-        onclick: () => elegirCategoria(categoria.clave)
-      })
+      el(
+        'button',
+        {
+          type: 'button',
+          clase: 'categoria' + (categoria.clave === ui.categoria ? ' categoria--activa' : ''),
+          'aria-pressed': categoria.clave === ui.categoria ? 'true' : 'false',
+          onclick: () => elegirCategoria(categoria.clave)
+        },
+        construirIconoCategoria(categoria.clave),
+        el('span', { clase: 'categoria__nombre', texto: categoria.nombre }),
+        el('span', { clase: 'categoria__flecha', 'aria-hidden': 'true' })
+      )
     )
   );
+}
+
+function pintarCabecera(lista, cantidad) {
+  const actual = lista.find(categoria => categoria.clave === ui.categoria);
+  refs.tituloCategoria.textContent = actual ? actual.nombre : '';
+  refs.contador.textContent = cantidad + ' ' + t(cantidad === 1 ? 'menu_opcion' : 'menu_opciones');
 }
 
 function pintarCatalogo(datos) {
@@ -68,10 +96,10 @@ function pintarCatalogo(datos) {
   refs.categorias.scrollTop = desplazamientoCategorias;
   const desplazamiento = refs.cuadricula.scrollTop;
   const mismaCategoria = refs.categoriaPintada === ui.categoria;
+  const productos = datos.productos.filter(producto => producto.categoria_es === ui.categoria);
+  pintarCabecera(lista, productos.length);
   refs.cuadricula.replaceChildren(
-    ...datos.productos
-      .filter(producto => producto.categoria_es === ui.categoria)
-      .map(producto => construirTarjetaProducto(producto, { alAgregar: agregar, alAbrir: abrirDetalle }))
+    ...productos.map(producto => construirTarjetaProducto(producto, { alAgregar: agregar, alAbrir: abrirDetalle }))
   );
   refs.cuadricula.scrollTop = mismaCategoria ? desplazamiento : 0;
   refs.categoriaPintada = ui.categoria;
@@ -95,12 +123,17 @@ function construirEsqueletoTarjetas() {
     el(
       'div',
       { clase: 'tarjeta-esqueleto', 'aria-hidden': 'true' },
-      el('div', { clase: 'esqueleto tarjeta-esqueleto__foto' }, el('span', { clase: 'tarjeta-esqueleto__boton' })),
+      el('div', { clase: 'esqueleto tarjeta-esqueleto__foto' }),
       el(
         'div',
-        { clase: 'tarjeta-esqueleto__nombre' },
-        el('span', { clase: 'esqueleto tarjeta-esqueleto__linea' }),
-        el('span', { clase: 'esqueleto tarjeta-esqueleto__linea tarjeta-esqueleto__linea--corta' })
+        { clase: 'tarjeta-esqueleto__pie' },
+        el(
+          'div',
+          { clase: 'tarjeta-esqueleto__nombre' },
+          el('span', { clase: 'esqueleto tarjeta-esqueleto__linea' }),
+          el('span', { clase: 'esqueleto tarjeta-esqueleto__linea tarjeta-esqueleto__linea--corta' })
+        ),
+        el('span', { clase: 'tarjeta-esqueleto__boton' })
       )
     )
   );
@@ -159,6 +192,7 @@ function actualizar() {
   refs.estado.hidden = !fallo;
   refs.categorias.hidden = fallo;
   refs.cuadricula.hidden = fallo;
+  refs.cabecera.hidden = fallo || !datos;
   refs.lento.hidden = !(datos === null && !ui.error && ui.lento);
   refs.lento.textContent = t('menu_lento');
   if (datos) {
@@ -232,7 +266,7 @@ function avisarResultado(producto, resultado) {
   if (resultado === 'ok') {
     mostrarAviso(textoLocalizado(producto, 'nombre') + ' — ' + t('aviso_agregado'), 'ok');
   } else if (AVISOS[resultado]) {
-        mostrarAviso(t(AVISOS[resultado]), 'alerta');
+    mostrarAviso(t(AVISOS[resultado]), 'alerta');
   }
 }
 
@@ -263,14 +297,24 @@ function ordenar(producto) {
 export function construirMenu() {
   if (ui.generacion !== sesion.generacion) restablecerUi();
 
-  const globo = el('span', { clase: 'menu__globo', hidden: true });
+  const globo = el('span', { clase: 'menu__comanda-globo', hidden: true });
   const orden = el(
     'button',
-    { type: 'button', clase: 'menu__orden', onclick: () => ir('orden') },
-    imagen(RUTAS.iconoOrden, { clase: 'menu__orden-icono', contener: true }),
+    { type: 'button', clase: 'menu__comanda', onclick: () => ir('orden') },
+    imagen(RUTAS.iconoOrden, { clase: 'menu__comanda-icono', contener: true }),
+    el('span', { clase: 'menu__comanda-texto', texto: t('menu_mi_orden') }),
     globo
   );
   const categorias = el('nav', { clase: 'menu__categorias' });
+  const tituloCategoria = el('h1', { clase: 'menu__titulo-categoria' });
+  const contador = el('span', { clase: 'menu__contador', role: 'status' });
+  const cabecera = el(
+    'div',
+    { clase: 'menu__cabecera', hidden: true },
+    el('span', { clase: 'menu__cabecera-linea', 'aria-hidden': 'true' }),
+    tituloCategoria,
+    contador
+  );
   const cuadricula = el('div', { clase: 'menu__cuadricula' });
   const estadoTexto = el('p', { clase: 'menu__estado-texto', role: 'status' });
   const reintentarBoton = el('button', {
@@ -286,6 +330,9 @@ export function construirMenu() {
 
   refs = {
     categorias,
+    cabecera,
+    tituloCategoria,
+    contador,
     cuadricula,
     categoriaPintada: null,
     esqueletoListo: false,
@@ -304,13 +351,12 @@ export function construirMenu() {
   const pantalla = el(
     'section',
     { clase: 'pantalla pantalla--menu' },
-    construirEncabezado({ alVolver: () => ir('identificacion') }),
+    construirEncabezadoMenu({ alVolver: () => ir('identificacion') }),
     el(
       'div',
       { clase: 'zona-contenido menu' },
-      el('h1', { clase: 'menu__titulo', texto: t('menu_titulo') }),
-      orden,
-      categorias,
+      el('aside', { clase: 'menu__lateral' }, categorias, orden),
+      cabecera,
       cuadricula,
       estado,
       lento,

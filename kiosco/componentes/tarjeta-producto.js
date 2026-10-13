@@ -35,7 +35,12 @@ export function construirTarjetaProducto(producto, { alAgregar, alAbrir }) {
       'div',
       { clase: 'tarjeta__foto' },
       construirLienzo(producto),
-      agotado ? el('span', { clase: 'tarjeta__agotado', texto: t('agotado') }) : null,
+      agotado ? el('span', { clase: 'tarjeta__agotado', texto: t('agotado') }) : null
+    ),
+    el(
+      'div',
+      { clase: 'tarjeta__pie' },
+      el('h2', { clase: 'tarjeta__nombre' }, el('span', { clase: 'tarjeta__nombre-texto', texto: nombre })),
       el(
         'button',
         {
@@ -48,7 +53,6 @@ export function construirTarjetaProducto(producto, { alAgregar, alAbrir }) {
         el('span', { clase: 'tarjeta__mas', 'aria-hidden': 'true' })
       )
     ),
-    el('h2', { clase: 'tarjeta__nombre' }, el('span', { clase: 'tarjeta__nombre-texto', texto: nombre })),
     el('button', {
       type: 'button',
       clase: 'tarjeta__detalle',
