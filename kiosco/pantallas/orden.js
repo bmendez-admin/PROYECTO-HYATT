@@ -1,6 +1,6 @@
 import { el, imagen } from '../../shared/dom.js';
 import { t, textoLocalizado } from '../../shared/i18n.js';
-import { construirEncabezado } from '../componentes/encabezado.js';
+import { construirEncabezadoMenu } from '../componentes/encabezado-menu.js';
 import { construirLienzo } from '../componentes/tarjeta-producto.js';
 import { construirTeclado } from '../componentes/teclado.js';
 import { ESPERA_TRANQUILIZAR_MS, RUTAS } from '../config.js';
@@ -367,7 +367,7 @@ export function construirOrden() {
   const pantalla = el(
     'section',
     { clase: 'pantalla pantalla--orden' },
-    construirEncabezado({ alVolver: volver }),
+    construirEncabezadoMenu({ alVolver: volver }),
     el(
       'div',
       { clase: 'zona-contenido orden' },

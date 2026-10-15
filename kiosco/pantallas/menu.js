@@ -301,7 +301,7 @@ export function construirMenu() {
   const orden = el(
     'button',
     { type: 'button', clase: 'menu__comanda', onclick: () => ir('orden') },
-    imagen(RUTAS.iconoOrden, { clase: 'menu__comanda-icono', contener: true }),
+    imagen(RUTAS.iconoComanda, { clase: 'menu__comanda-icono', contener: true }),
     el('span', { clase: 'menu__comanda-texto', texto: t('menu_mi_orden') }),
     globo
   );

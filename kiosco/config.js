@@ -11,6 +11,7 @@ export const RUTAS = {
   iconoHabitacion: '../assets/iconos/habitacion.png',
   iconoPersona: '../assets/iconos/persona.png',
   iconoOrden: '../assets/iconos/platter.png',
+  iconoComanda: '../assets/iconos/comanda.png',
   productos: '../assets/productos/',
   iconosCategoria: {
     Desayunos: '../assets/iconos/cat-desayunos.png',
