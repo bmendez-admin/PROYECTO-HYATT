@@ -1,6 +1,6 @@
 # Planeación: Kiosco de pedidos Hyatt Breathless (demo con ruta a producto)
 
-Versión 1.7 · 12/10/2026 · Regida por REQUISITOS_DE_PROMPT.md
+Versión 1.8 · 13/10/2026 · Regida por REQUISITOS_DE_PROMPT.md
 
 ## 1. Contexto y alcance
 - **Cliente:** Breathless Resorts & Spas (Hyatt Inclusive Collection). Resort solo adultos, todo incluido.
@@ -143,17 +143,18 @@ Respuesta: `{ok:true,data}` o `{ok:false,code[,data]}`. Códigos: E_VALIDATION, 
 
 ## 7. Estado de pedido
 - **Pantalla pública sin interacción,** bilingüe permanente (ES y EN a la vez). Solo número, estatus y hora.
-- **Dos bloques** (En proceso y Listo). En horizontal, En proceso a la izquierda y Listo a la derecha. En vertical, Listo arriba.
-  - Pendiente: tarjeta apagada, solo contorno, etiqueta "En cola / Queued".
-  - En preparación: tarjeta iluminada, etiqueta "Preparando / Preparing".
-  - Completo: pasa al bloque Listo, resaltado unos 8 s.
-- El gris de la tarjeta apagada debe cumplir 4.5:1 de contraste.
-- **Orden:** número ascendente en En proceso, más reciente primero en Listo. Máximo de números por bloque con contador "+N".
+- **Solo horizontal 1920×1080** (decidido el 13/10; no existe versión vertical). Encabezado con logo, título, reloj y fecha del dispositivo.
+- **Dos bloques** (En proceso a la izquierda y Listo a la derecha), sin etiquetas "En cola / Queued".
+  - Pendiente: tarjeta tenue en gris, con número y texto.
+  - En preparación: número y texto en morado (color de acción).
+  - Completo: pasa al bloque Listo (tarjeta morada con texto blanco), resaltado unos 8 s.
+- **Orden:** número ascendente en En proceso, más reciente primero en Listo. Máximo de 8 tarjetas por bloque (2 columnas × 4 filas) con contador "+ N más / more".
+- **Texto:** español con una línea pequeña en inglés debajo.
 - **Alcance de datos:** solo muestra pedidos del día operativo actual y que no estén vencidos.
 - **Cancelado:** no se muestra. Un número que sale de En proceso sin llegar a Listo se desvanece en 10 s.
 - **Listo:** se oculta a los 10 min si nadie marca Recibido (solo en pantalla).
 - **Sin sonido.** Consulta cada 5 s. Sin conexión: indicador a los 30 s y mensaje neutro a los 2 min. Recarga automática cada 6 h.
-- **Por decidir:** línea fija al pie "Si tu número desaparece, consulta con el personal / If your number disappears, please ask our staff".
+- **Sin línea fija al pie** (decidido el 13/10, la referencia aprobada no la incluye). Sin conexión o sin configurar: pantalla "no configurada" si falla la autenticación.
 
 ## 8. Dashboard
 - **Usuario:** encargado, en navegador de escritorio. Selector de venue (con "Todos") y de periodo (Hoy, Ayer, 7 días, personalizado).
@@ -205,8 +206,8 @@ Los parámetros por venue (turnos, semáforo, meta, turno vencido, día operativ
 | S3c | Backend del dashboard: login por PIN, `venues`, `metricas`, `exportar_pedidos`, `atender_reabasto`; retirar el probador | Pendiente (antes de S9) |
 | S4–S5 | Kiosco: identificación, menú, detalle, orden, envío, ticket, inactividad y pantalla de espera | Cerradas (08/10/2026) |
 | S6a | Backend del KDS: código de chef, 6 chefs con avatar, tipo de pausa, imagen en la cola | Cerrada (09/10/2026) |
-| S6–S7 | KDS | Pendiente (14/10) |
-| S8 | Estado | Pendiente (15/10) |
+| S6–S7 | KDS (frontend: acceso, fila, pedido activo, despachados, pausas, cancelación) | Cerrada (13/10/2026), validada con el backend real |
+| S8 | Estado (frontend) | Cerrada (13/10/2026), validada visualmente |
 | S9 | Dashboard | Pospuesto a después de la presentación |
 | S10 | Seguridad, QA, despliegue en ADMIRA y documentación | Pendiente (16/10) |
 
@@ -280,7 +281,7 @@ Los parámetros por venue (turnos, semáforo, meta, turno vencido, día operativ
 | Día | Foco | Entregable |
 |---|---|---|
 | Mar 13 | Rediseño visual del kiosco con los diseños nuevos y lista de verificación pendiente; si sobra tiempo, revisar diseños del KDS y Estado | Kiosco con el estilo nuevo verificado |
-| Mié 14 | KDS completo (S6 y S7) | KDS funcional con el estilo nuevo |
+| Mié 14 | Adelantado: KDS y Estado ya hechos. Commit y etiquetas, despliegue en GitHub Pages, latencia de `crear_pedido`, ajustes de diseño | Tres pantallas desplegadas |
 | Jue 15 | Resto del backend (revisar `ApiEstado.gs`, publicar versión final, optimizar `crear_pedido` si hay código) y pantalla de Estado | Estado funcionando y tres flujos conectados |
 | Vie 16 | Pruebas de punta a punta, correcciones, revisión de seguridad, documentación y envío del equipo completo | Entrega |
 
@@ -312,3 +313,9 @@ Los parámetros por venue (turnos, semáforo, meta, turno vencido, día operativ
 - Decisiones del KDS: sin agregar ni eliminar personas, sin botón "+" ni inventario en la interfaz, un pedido activo por chef.
 - Directiva pidió cambios solo estéticos en kiosco, KDS y Estado; los diseños nuevos llegan el 13/10.
 - Dashboard (S3c y S9) pospuesto a después de la presentación. Plazo firme el 16/10, con 4 días de 6 horas.
+
+### v1.8 (13/10/2026)
+- Kiosco: rediseño visual aplicado y verificado.
+- KDS (frontend) terminado: acceso por chef y código, fila, pedido activo con modos adaptativos según la cantidad de artículos (hasta 3 grande, hasta 6 medio, hasta 12 chico, más de 12 lista en dos columnas), despachados, pausas, cancelación, semáforo, sonido y aviso de conflicto. Topes por tarjeta: 4 artículos en la fila y 6 en despachados, con "+ N más".
+- Estado (frontend) terminado y validado visualmente: solo horizontal, bilingüe con línea en inglés, cuadrícula 2×4 con "+ N más / more", reloj del dispositivo, sin línea al pie, pendiente en gris tenue y en preparación en morado.
+- Se adelantaron S6–S7 y S8 a hoy; el 14/10 queda para cierre técnico, despliegue y ajustes de diseño.

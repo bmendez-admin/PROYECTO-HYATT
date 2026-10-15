@@ -1,6 +1,6 @@
 # Documentación técnica: Kiosco Hyatt Breathless
 
-Actualizada al cierre de la sesión del 12/10/2026 (S6a)
+Actualizada al cierre de la sesión del 13/10/2026 (KDS y Estado, frontend)
 
 ## 1. Arquitectura
 - **Front:** HTML, CSS y JS (módulos ES) en GitHub Pages. Sin build.
@@ -166,13 +166,13 @@ Los pedidos y movimientos de prueba quedan en KIOSCO, KDS, PEDIDO_ITEMS, INVENTA
 - Cuotas de Apps Script según la edición de Workspace, sin confirmar.
 
 ## 10. Pendiente
-- **KDS (frontend):** pantalla horizontal con selección de responsable, ingreso con código, fila, pedido activo, despachados, pausas, cancelación y avisos (14/10). Validadores de `cola`, turnos y `cambiar_estatus` ya están en `shared/api.js`.
-- **Estado (frontend)** el 15/10. **Dashboard (S3c y S9) pospuesto** a después de la presentación.
+- **Dashboard (S3c y S9) pospuesto** a después de la presentación.
+- **Despliegue:** confirmar en GitHub Pages las rutas relativas, la CSP y las URL finales de kiosco, KDS y Estado; ejecutar `git grep` de tokens antes de cada push.
+- **Pruebas de punta a punta** con kiosco, dos tablets de KDS y Estado juntos contra el backend real.
 - **S3c (antes de S9):** login del dashboard con PIN (sesión de hasta 6 h, bloqueo de 5 min tras 5 intentos), `venues`, `metricas`, `exportar_pedidos` y `atender_reabasto`. Verificar antes que exista `PIN_HASH` en Propiedades del script.
 - Retirar `spike/probador.html` al cerrar S3c.
 - Probar en real `ping` aislado, y `pausar` y `reanudar` repetidos.
-- Confirmar los parámetros propuestos de relleno y reabasto, y decidir la línea fija al pie de la pantalla de Estado.
-- Comparar `ApiEstado.gs` del repo con la versión del editor.
+- Confirmar los parámetros propuestos de relleno y reabasto.
 - Optimizar `crear_pedido` (escritura por bloque): se observaron de 7 a 12 s con 13 unidades.
 - Confirmar con el cliente la licencia web de la fuente Optima nova.
 
@@ -236,8 +236,26 @@ Muestra el número del pedido. "Finalizar pedido" reinicia la sesión y vuelve a
 ### Iconos
 Iconos de diseño en PNG: `assets/iconos/{agregar,avanzar,edificio,eliminar,habitacion,persona,platter,retroceder}.png`. El chevron y la "X" de la orden se dibujan con CSS; `avanzar.png` no se usa.
 
+## KDS (frontend)
+- Lienzo fijo de 1920×1080 escalado con `--escala`. Módulos ES sin dependencias en `kds/`: `config.js`, `textos.js`, `servicios/` (cola, solicitudes, turnos, pedidos, semaforo, sonido), `componentes/` y `pantallas/`.
+- Sesión por tablet en `localStorage` con la clave `kds_chef_<venue>`.
+- Consulta de `cola` cada 5 s. Repintado por firma. La conciliación solo corre si la vista está sincronizada y no hay envío en curso. Sin conexión: error con más de 30 s sin éxito.
+- Semáforo con los umbrales de `cola.parametros` (hoja VENUES). Sonido con Web Audio al llegar pedidos pendientes nuevos; requiere un primer toque en la pantalla.
+- Panel del pedido activo con modos según los artículos: hasta 3 grande, hasta 6 medio, hasta 12 chico, más de 12 lista en dos columnas. Topes `LIMITE_ITEMS_FILA` (4) y `LIMITE_ITEMS_DESPACHO` (6) con "+ N más".
+- Transiciones: tomar, completar, recibir, cancelar y liberar; pausa corta o de comida. Conflictos: "Otro responsable ya tomó el pedido N.".
+- Iconos blancos aplicados con máscara CSS.
+
+## Estado (frontend)
+- Carpeta `estado/`, rol `estado`, lienzo fijo de 1920×1080, solo horizontal. URL con `venue` y `token` por parámetros; el token no se guarda en ningún archivo.
+- `servicios/consulta.js` consulta `estado` cada 5 s (límite de 12 s). `servicios/tablero.js` guarda en memoria `saliendo` (números que dejan En proceso sin llegar a Listo, se desvanecen 10 s conservando su lugar) y `listoVisto` (nuevos en Listo, resaltados 8 s; la primera carga no resalta).
+- Reconciliación del DOM por clave: solo mueve nodos si cambia el orden, para no reiniciar animaciones CSS. Las duraciones de animación están duplicadas en `estado.css` porque el CSS no lee `config.js`.
+- Máximo de 8 tarjetas por bloque (2×4) con "+ N más / more". Reloj y fecha del dispositivo.
+- Sin conexión: indicador a los 30 s ("Actualizando… / Updating…") y mensaje neutro a los 2 min. `E_AUTH` muestra "pantalla no configurada". Recarga automática cada 6 h. Respeta `prefers-reduced-motion`. Sin sonido.
+- CSP: `connect-src` solo a `script.google.com`.
+
 ## Pruebas
 - Chromium con Playwright contra un backend simulado (`mock.js`); 65 comprobaciones en 4 suites (identificación y menú).
+- KDS y Estado: pruebas con Playwright contra un backend simulado y validación manual de Bryan contra el backend real el 13/10/2026 (KDS) y visual (Estado).
 - Pruebas manuales en Chrome contra el backend real el 08/10/2026 para el modal, la orden, el envío con ticket, el aviso de proceso a los 15 s y la pantalla de espera. Pedidos de prueba: ejecutar `reiniciarDemo()` antes de la demo.
 
 ## KDS (backend, S6a)
