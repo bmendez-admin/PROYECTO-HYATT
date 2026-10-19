@@ -1,6 +1,6 @@
 # Documentación técnica: Kiosco Hyatt Breathless
 
-Actualizada al cierre de la sesión del 13/10/2026 (KDS y Estado, frontend)
+Actualizada al cierre de la sesión del 15/10/2026 (diseño aplicado y diagnóstico de rendimiento)
 
 ## 1. Arquitectura
 - **Front:** HTML, CSS y JS (módulos ES) en GitHub Pages. Sin build.
@@ -173,7 +173,7 @@ Los pedidos y movimientos de prueba quedan en KIOSCO, KDS, PEDIDO_ITEMS, INVENTA
 - Retirar `spike/probador.html` al cerrar S3c.
 - Probar en real `ping` aislado, y `pausar` y `reanudar` repetidos.
 - Confirmar los parámetros propuestos de relleno y reabasto.
-- Optimizar `crear_pedido` (escritura por bloque): se observaron de 7 a 12 s con 13 unidades.
+- Migrar el backend a Supabase (inicia el 19/10); sustituye la optimización de `crear_pedido` en Apps Script.
 - Confirmar con el cliente la licencia web de la fuente Optima nova.
 
 ## Kiosco (frontend)
@@ -252,6 +252,16 @@ Iconos de diseño en PNG: `assets/iconos/{agregar,avanzar,edificio,eliminar,habi
 - Máximo de 8 tarjetas por bloque (2×4) con "+ N más / more". Reloj y fecha del dispositivo.
 - Sin conexión: indicador a los 30 s ("Actualizando… / Updating…") y mensaje neutro a los 2 min. `E_AUTH` muestra "pantalla no configurada". Recarga automática cada 6 h. Respeta `prefers-reduced-motion`. Sin sonido.
 - CSP: `connect-src` solo a `script.google.com`.
+
+## Recursos de diseño (15/10)
+- Íconos en `assets/iconos/`: `edificio`, `habitacion`, `persona`, `platter`, `comanda` y `cat-desayunos`, `cat-entradas`, `cat-ensaladas`, `cat-carnes`, `cat-mariscos`, `cat-bebidas`, `cat-postres`. Rutas en `kiosco/config.js` (`RUTAS.iconoComanda`, `RUTAS.iconosCategoria`).
+- Fotos en `assets/productos/` con el valor de `imagen` del catálogo más `.jpg`. El valor debe cumplir `PATRON_IMAGEN`. Si `imagen` viene vacío no se pide ningún archivo y se muestra el ícono de respaldo.
+- La confirmación de orden usa el mismo encabezado que el menú (`construirEncabezadoMenu`).
+
+## Rendimiento (diagnóstico del 15/10)
+- Una llamada a `exec` tarda cerca de 2.4 s solo en red y redirección. Identificar, `crear_pedido` y los cambios de estatus del KDS se perciben lentos; `crear_pedido` llegó a 7–12 s.
+- Causas: múltiples accesos a hojas por acción, candado compartido con las consultas periódicas del KDS, Estado y espera del kiosco, y reintentos ante el 404 de Google.
+- Camino acordado: migrar a Supabase desde el 19/10.
 
 ## Pruebas
 - Chromium con Playwright contra un backend simulado (`mock.js`); 65 comprobaciones en 4 suites (identificación y menú).

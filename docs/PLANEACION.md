@@ -1,6 +1,6 @@
 # Planeación: Kiosco de pedidos Hyatt Breathless (demo con ruta a producto)
 
-Versión 1.8 · 13/10/2026 · Regida por REQUISITOS_DE_PROMPT.md
+Versión 1.9 · 15/10/2026 · Regida por REQUISITOS_DE_PROMPT.md
 
 ## 1. Contexto y alcance
 - **Cliente:** Breathless Resorts & Spas (Hyatt Inclusive Collection). Resort solo adultos, todo incluido.
@@ -209,7 +209,8 @@ Los parámetros por venue (turnos, semáforo, meta, turno vencido, día operativ
 | S6–S7 | KDS (frontend: acceso, fila, pedido activo, despachados, pausas, cancelación) | Cerrada (13/10/2026), validada con el backend real |
 | S8 | Estado (frontend) | Cerrada (13/10/2026), validada visualmente |
 | S9 | Dashboard | Pospuesto a después de la presentación |
-| S10 | Seguridad, QA, despliegue en ADMIRA y documentación | Pendiente (16/10) |
+| S10 | Seguridad, QA, despliegue en ADMIRA y documentación | En curso: desplegado en ADMIRA el 15/10; pruebas de punta a punta pendientes |
+| S11 | Migración del backend a Supabase (Postgres, Edge Functions, Realtime) | Pendiente: inicia el lunes 19/10 |
 
 ## 11. Pruebas técnicas
 **S1 (cerrada)**
@@ -319,3 +320,10 @@ Los parámetros por venue (turnos, semáforo, meta, turno vencido, día operativ
 - KDS (frontend) terminado: acceso por chef y código, fila, pedido activo con modos adaptativos según la cantidad de artículos (hasta 3 grande, hasta 6 medio, hasta 12 chico, más de 12 lista en dos columnas), despachados, pausas, cancelación, semáforo, sonido y aviso de conflicto. Topes por tarjeta: 4 artículos en la fila y 6 en despachados, con "+ N más".
 - Estado (frontend) terminado y validado visualmente: solo horizontal, bilingüe con línea en inglés, cuadrícula 2×4 con "+ N más / more", reloj del dispositivo, sin línea al pie, pendiente en gris tenue y en preparación en morado.
 - Se adelantaron S6–S7 y S8 a hoy; el 14/10 queda para cierre técnico, despliegue y ajustes de diseño.
+
+### v1.9 (15/10/2026)
+- Recursos de diseño recibidos y aplicados en el kiosco: íconos de datos (edificio, habitación, persona), íconos de categoría (`cat-*.png`), ícono de comanda y encabezado con edificio, habitación y hora también en la confirmación de orden. La identificación no muestra edificio ni habitación porque aún no existen.
+- Las fotos de platillos se cargan desde `assets/productos/<imagen>.jpg`; la columna `imagen` de la hoja DB debe llevar el nombre sin extensión. Con la columna vacía el kiosco muestra el ícono de respaldo.
+- Desplegado en GitHub Pages y probado en ADMIRA: funciona, pero con lentitud en identificación, envío del pedido y cambios de estatus del chef (entre 2 y 12 s por acción).
+- Causas identificadas: costo base de Apps Script (cerca de 2.4 s por llamada), múltiples accesos a hojas por acción, competencia por el candado entre escrituras y consultas periódicas, y reintentos ante el 404 intermitente de Google.
+- Decisión: dejar el backend actual como está para la demo y migrar a Supabase a partir del lunes 19/10. Estimado de 3.5 a 4 días. Se conserva el contrato JSON para no reescribir el frontend.
