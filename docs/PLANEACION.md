@@ -1,6 +1,6 @@
 # Planeación: Kiosco de pedidos Hyatt Breathless (demo con ruta a producto)
 
-Versión 1.9 · 15/10/2026 · Regida por REQUISITOS_DE_PROMPT.md
+Versión 2.0 · 20/10/2026 · Regida por REQUISITOS_DE_PROMPT.md
 
 ## 1. Contexto y alcance
 - **Cliente:** Breathless Resorts & Spas (Hyatt Inclusive Collection). Resort solo adultos, todo incluido.
@@ -8,11 +8,11 @@ Versión 1.9 · 15/10/2026 · Regida por REQUISITOS_DE_PROMPT.md
 - **Objetivo:** el huésped pide desde un kiosco, espera su número en una pantalla, el chef lo prepara desde una tablet, y un dashboard informa la operación.
 - **Entregables de la demo:** 1 kiosco, 1 KDS (2 chefs simultáneos, 1 tablet cada uno) y 1 pantalla de Estado. El dashboard se pospone a después de la presentación (se retoma antes si directiva concede más días).
 - **Fuera de alcance:** pagos, notas por pedido, puntos o ranking de chefs, notificaciones externas (correo o WhatsApp), reinicio diario de stock.
-- **Plazo:** fecha límite firme el 16/10/2026. Días de trabajo: 13, 14, 15 y 16, con 6 horas diarias.
+- **Plazo:** sin fecha de entrega confirmada (la del 16/10/2026 no se confirmó). El 20/10/2026 la demo quedó operando en ADMIRA con el backend en Supabase.
 
 ## 2. Stack y despliegue
 - HTML, CSS y JS modular (módulos ES nativos), sin build, alojado solo en GitHub Pages (repo `bmendez-admin/PROYECTO-HYATT`, rama `main`, Pages desde la raíz).
-- Backend: Google Sheets + Apps Script en la cuenta de ADMIRA. Web app ejecutada como el propietario, con acceso "Cualquier persona".
+- Backend: Supabase (Postgres y una Edge Function `api`) desde el 20/10/2026. Proyecto `hyatt-breathless-demo`, región West US (Oregon), plan Free. El backend anterior (Google Sheets + Apps Script en la cuenta de ADMIRA, web app ejecutada como el propietario con acceso "Cualquier persona") queda sin cambios como respaldo.
 - Se ejecuta como contenido web en el reproductor de ADMIRA (Windows, Chrome). Kiosco táctil y tablets para KDS.
 - Pantallas de 1920×1080 en horizontal y 1080×1920 en vertical. Tipografía Montserrat.
 - Regla: cero `innerHTML` con datos del servidor. Todo se construye con `shared/dom.js`.
@@ -29,6 +29,8 @@ Versión 1.9 · 15/10/2026 · Regida por REQUISITOS_DE_PROMPT.md
 - **Pendiente de terceros:** guía de marca, menú real y sede definitiva. La guía de marca y el brief llegan del equipo de diseño (pendiente de hablar con ellos antes de S4).
 
 ## 4. Backend y DB
+
+> Desde el 20/10/2026 el backend en producción es Supabase. Las secciones 4.1 a 4.5 describen el modelo de datos y las reglas de negocio, que se conservan tal cual; los mecanismos propios de Apps Script (hojas, Script Properties, `LockService`, `CacheService`) quedan como respaldo. La sección 4.6 resume cómo se implementó cada cosa en Supabase.
 
 ### 4.1 Pestañas
 | Pestaña | Campos clave |
@@ -49,7 +51,7 @@ Versión 1.9 · 15/10/2026 · Regida por REQUISITOS_DE_PROMPT.md
 - Prioridad si hay que recortar: REABASTO y LOG se posponen primero.
 - Número de pedido secuencial por venue y por día operativo. `pedido_id` = `<venue>-<yyyymmdd>-<nnn>`.
 - El stock se descuenta al crear el pedido (INVENTARIO tipo `consumo`, responsable `pedido:<id>`) y se devuelve si se cancela (tipo `devolucion`, responsable `cancelacion:<id>`). Los rellenos se registran como tipo `relleno`, responsable `chef:<chef_id>`.
-- Datos demo: 3 venues (zona `America/Cancun`), menú solo para Bites (13 productos), 40 cuartos en 2 edificios de 4 pisos con 5 cuartos por piso (50 % ocupados, apellidos ficticios) y 6 chefs.
+- Datos demo: 3 venues (zona `America/Cancun`), menú solo para Bites (25 productos), 40 cuartos en 2 edificios de 4 pisos con 5 cuartos por piso (50 % ocupados, apellidos ficticios) y 6 chefs.
 
 ### 4.2 Estatus y transiciones
 Estatus: `pendiente`, `en_preparacion`, `completo`, `recibido`, y `cancelado` (interno).
@@ -91,7 +93,7 @@ Respuesta: `{ok:true,data}` o `{ok:false,code[,data]}`. Códigos: E_VALIDATION, 
 | kds | `inventario`, `registrar_relleno`, `solicitar_reabasto` | Hecho (S3b) |
 | estado | `estado` | Hecho (S2) |
 | kiosco | `estado` (solo número y estatus, para la pantalla de espera) | Hecho (S5) |
-| dashboard (sesión por PIN) | `login_dashboard`, `venues`, `metricas`, `exportar_pedidos`, `atender_reabasto` | Pendiente (S3c) |
+| dashboard (sesión por PIN) | `login_dashboard`, `venues`, `metricas`, `exportar_pedidos`, `atender_reabasto` | Pendiente (S3c), sobre Supabase |
 
 ### 4.4 Seguridad (OWASP, Zero Trust)
 - Token por rol y venue. Se guarda como hash SHA-256 con sal en Script Properties; el valor real se muestra una sola vez al generarlo y se entrega en la URL de contenido de ADMIRA, no en el repo. Es control por dispositivo, no autenticación de personas. No ejecutar `generarTokens()` de nuevo sin necesidad: rota todos los tokens.
@@ -113,6 +115,34 @@ Respuesta: `{ok:true,data}` o `{ok:false,code[,data]}`. Códigos: E_VALIDATION, 
 - Latido de chef en `CacheService` (90 s), no en el Sheet.
 - Métricas agregadas en el servidor. Peticiones CORS normales en `text/plain`.
 - Cliente: hasta 3 reintentos con esperas de 1, 2 y 4 s ante respuestas que no sean JSON (404 intermitente de Google), `E_METHOD` o fallo de red, reenviando siempre el mismo cuerpo y `request_id`. Tiempo máximo de 30 s por intento. Además, debe comprobar que la respuesta tenga la forma esperada para lo que pidió. `repetido: true` y `duplicado: true` se tratan como éxito. Opcionalmente acota el tiempo total de una petición (`limiteTotalMs`): 60 s en `crear_pedido` y 12 s en la consulta de la pantalla de espera.
+
+### 4.6 Implementación en Supabase (S11, 19 y 20/10/2026)
+- **Contrato:** el mismo JSON de 4.3 y los mismos códigos de error. El frontend solo cambió `API_URL` (`shared/config.js`) y la CSP. La respuesta HTTP es siempre 200; el resultado va en `ok` y `code`.
+- **Arquitectura:** una Edge Function `api` (Deno, con "Verify JWT" desactivado) valida la entrada, autentica con `api_autenticar` y llama a una función SQL por acción. Cada función devuelve el sobre final (`{ok,data}` o `{ok:false,code,data}`). Los errores de negocio se devuelven sin `RAISE`, para que no se reviertan los contadores de límite de frecuencia.
+- **Equivalencias con las pestañas:**
+
+| Apps Script (Sheet) | Supabase |
+|---|---|
+| VENUES | `venues` |
+| DB | `productos` |
+| HUESPEDES | `huespedes` |
+| KIOSCO y KDS | `pedidos` (una sola tabla; único `(venue_id, request_id)`) |
+| PEDIDO_ITEMS | `pedido_items` |
+| INVENTARIO | `inventario_mov` |
+| REABASTO | `reabasto` (índice único parcial: una solicitud `pendiente` por producto) |
+| CHEFS | `chefs` (código con hash bcrypt) |
+| TURNOS | `turnos` (índice único: un solo turno abierto por chef) |
+| LOG | `log` |
+| Script Properties (tokens) | `tokens` |
+| CacheService (límites y bloqueos) | `limites` (tabla sin registro de escritura, `unlogged`) |
+| Contador de número de pedido | `contadores_pedido` |
+
+- **Seguridad:** token por rol y venue guardado como SHA-256 de sal más token en `tokens`; `generar_tokens()` rota los 9 tokens y los muestra una sola vez. Límite por minuto por rol y venue (kiosco 60, kds 180, estado 90) y bloqueos (5 cuartos fallidos, 5 códigos de chef fallidos, 60 s) en `limites`. RLS activo sin políticas y sin permisos para `anon` ni `authenticated`. Funciones `security definer` con `search_path` fijo y `execute` solo para `service_role`. La llave de servicio vive en las variables de la Edge Function: nunca en el frontend ni en el repo.
+- **Concurrencia:** bloqueo de fila del venue (`for update` sobre `venues`) en toda escritura, en lugar de `LockService`. Cada acción es una transacción. No hay caché de servidor: las lecturas van directo a la base. `request_id` sigue siendo idempotente.
+- **Cierre automático:** el cierre de pedidos y turnos vencidos corre al consultar `cola` solo si hay algo vencido, y en cada acción de turno, estatus, relleno o reabasto.
+- **Mantenimiento:** `reiniciar_demo()` borra pedidos, items, contadores, reabasto, turnos y límites, elimina los movimientos que no son `inicial` y restaura el stock inicial. No toca tokens, chefs ni LOG.
+- **Respaldo:** el Apps Script sigue desplegado y sin cambios. Para volver a él se cambia `API_URL` en `shared/config.js` por la URL del `/exec`; los tokens de Apps Script siguen vigentes en ese backend.
+- **CORS abierto (decisión de demo):** la función responde `Access-Control-Allow-Origin: *`. Aceptable mientras sea una demo con datos ficticios. Para una implementación real hay que limitarlo al dominio definitivo y reemplazar los tokens por autenticación real.
 
 ## 5. Kiosco
 - **Flujo:** Portada (ES/EN) → Identificación → Menú (con detalle del platillo) → Orden → Ticket → Portada.
@@ -203,14 +233,25 @@ Los parámetros por venue (turnos, semáforo, meta, turno vencido, día operativ
 | S2 | Backend parte 1: esquema, datos demo, seguridad, API de kiosco, cola y estado | Cerrada |
 | S3a | Backend parte 2a: turnos, cambio de estatus, cierre automático a 12 h, reinicio de demo | Cerrada |
 | S3b | Backend parte 2b: inventario, relleno y reabasto del KDS, idempotencia de turnos, `E_METHOD` | Cerrada |
-| S3c | Backend del dashboard: login por PIN, `venues`, `metricas`, `exportar_pedidos`, `atender_reabasto`; retirar el probador | Pendiente (antes de S9) |
+| S3c | Backend del dashboard: login por PIN, `venues`, `metricas`, `exportar_pedidos`, `atender_reabasto`; retirar el probador | Pendiente (antes de S9). Se construiría sobre Supabase, no sobre Apps Script |
 | S4–S5 | Kiosco: identificación, menú, detalle, orden, envío, ticket, inactividad y pantalla de espera | Cerradas (08/10/2026) |
 | S6a | Backend del KDS: código de chef, 6 chefs con avatar, tipo de pausa, imagen en la cola | Cerrada (09/10/2026) |
 | S6–S7 | KDS (frontend: acceso, fila, pedido activo, despachados, pausas, cancelación) | Cerrada (13/10/2026), validada con el backend real |
 | S8 | Estado (frontend) | Cerrada (13/10/2026), validada visualmente |
 | S9 | Dashboard | Pospuesto a después de la presentación |
-| S10 | Seguridad, QA, despliegue en ADMIRA y documentación | En curso: desplegado en ADMIRA el 15/10; pruebas de punta a punta pendientes |
-| S11 | Migración del backend a Supabase (Postgres, Edge Functions, Realtime) | Pendiente: inicia el lunes 19/10 |
+| S10 | Seguridad, QA, despliegue en ADMIRA y documentación | Cerrada (20/10/2026): desplegado en ADMIRA con Supabase y probado de punta a punta |
+| S11 | Migración del backend a Supabase (Postgres y Edge Function) | Cerrada (20/10/2026). Realtime queda como mejora futura: se mantiene la consulta cada 5 s |
+
+### Etapas de S11
+| Etapa | Contenido | Estado |
+|---|---|---|
+| 0 | Proyecto, esquema, datos demo y tokens | Cerrada (19/10) |
+| 1 | `catalogo`, `validar_cuarto`, `estado` | Cerrada (19/10) |
+| 2 | `crear_pedido` con descuento de stock e idempotencia | Cerrada (19/10) |
+| 3a | `cola`, turnos y cierre automático | Cerrada (19/10) |
+| 3b | `cambiar_estatus` | Cerrada (19/10) |
+| 3c | `inventario`, `registrar_relleno`, `solicitar_reabasto` | Cerrada (19/10) |
+| 4 | Prueba de punta a punta, páginas publicadas apuntando a Supabase, tokens nuevos y despliegue en ADMIRA | Cerrada (20/10) |
 
 ## 11. Pruebas técnicas
 **S1 (cerrada)**
@@ -258,7 +299,28 @@ Los parámetros por venue (turnos, semáforo, meta, turno vencido, día operativ
 - Latencia observada en el envío del pedido: de 7 a 12 s con 13 unidades en 3 platillos (consultas normales de 2.2 a 2.5 s).
 - Por verificar en real antes del hito: red caída con reintento sin pedidos duplicados, `E_STOCK` al enviar, límite de 15 líneas, aviso de inactividad en cada pantalla y desplazamiento con muchos pedidos en la espera.
 
+**S11 (cerrada, 19 y 20/10/2026)**
+- Pruebas locales de cada parte sobre un Postgres 16 con un arnés en Node que simula la Edge Function: unas 40 comprobaciones de la cola y los turnos, 45 de `cambiar_estatus` y 27 de inventario, relleno y reabasto.
+- Cola y turnos: máximo de turnos, bloqueo de 5 fallos del código del chef, chef con turno en otra sede, pausa y cierre bloqueados con pedido en preparación, acumulado de minutos de pausa, cierre automático a 12 h con devolución de stock y repetición segura de cada acción.
+- `cambiar_estatus`: las seis transiciones, repetición con `repetido: true`, `otro_chef`, `fuera_de_ventana` a los 61 s, `sin_turno_activo` (sin turno o en pausa), devolución única de stock al cancelar, y rechazo de motivo, transición o `pedido_id` inválidos.
+- Inventario: orden por stock, estados `ok`, `bajo` y `agotado`, relleno idempotente por `request_id` (aun con el turno en pausa), cantidades fuera de 1 a 200 o no enteras, reabasto con `solicitud_pendiente` y nueva solicitud una vez atendida la anterior.
+- Verificación manual de Bryan contra el proyecto real: menú, validación de cuarto, Estado, pedido con descuento de stock (de 40 a 35), pantalla de cocina con turnos, tomar, completar, cancelar y revertir, y las acciones de inventario, relleno y reabasto desde la consola del navegador (no existe pantalla para ellas).
+- Páginas publicadas en GitHub Pages y en ADMIRA con tokens nuevos: los tres flujos completos funcionan. Un navegador con la copia vieja de `shared/config.js` siguió llamando a Apps Script hasta recargar con Ctrl + Shift + R (GitHub Pages guarda los archivos hasta 10 minutos).
+- Tiempos medidos: catálogo 1.02 s (primera carga), `validar_cuarto` 0.54 s, `estado` de 0.45 a 0.99 s, `crear_pedido` unos 1.3 s (antes de 2 a 12 s), llamadas de la cocina de 0.38 a 0.57 s.
+
 ## 12. Riesgos
+Los riesgos de Google y Apps Script (404 intermitente, `LockService`, hojas que crecen, cuotas) aplican solo si se vuelve al respaldo.
+
+**Riesgos de Supabase (S11)**
+- **CORS abierto** (`*`) y tokens como único control: aceptable en la demo, no en producción.
+- **Tokens expuestos:** las URLs de pruebas salieron completas en capturas de pantalla. Con datos ficticios es de bajo riesgo; antes de usar el sistema con datos reales o fuera de ADMIRA hay que ejecutar `generar_tokens()` y actualizar las URLs.
+- **Plan Free:** se pausa tras una semana sin actividad (mitigado: el proyecto se usa a diario). Verificar los límites vigentes del plan, en particular las invocaciones mensuales de Edge Functions: cada pantalla consulta cada 5 s, y con varias pantallas encendidas todo el día el total mensual crece rápido.
+- **Código de los chefs de demo** en `02_semilla.sql`: si el repo es público, esos códigos (ficticios) son visibles.
+- **Sin caché de servidor:** cada consulta periódica llega a la base. Con más pantallas habrá que revisar la frecuencia o usar Realtime.
+- **Tablas que crecen** (`pedidos`, `inventario_mov`, `log`): habrá que archivar en una operación real.
+- **Cambios de código en dos lugares:** el SQL y la Edge Function se pegan a mano en el panel de Supabase; los archivos del repo deben coincidir con lo desplegado.
+- **Llave de servicio** en las variables de la función: no debe copiarse a ningún archivo ni compartirse.
+
 - Política de Workspace que bloquee el acceso público al Apps Script (validado en S1, vigilar cambios).
 - Cuotas de Apps Script según la edición de Workspace (sin confirmar).
 - Latencia de escritura (de 4 a 20 s habituales, con picos de 27 s o más) y serialización: con varios kioscos a la vez puede notarse.
@@ -279,6 +341,8 @@ Los parámetros por venue (turnos, semáforo, meta, turno vencido, día operativ
 - Plan ajustado, sin colchón. S3c y S9 quedan fuera de la demo.
 
 ### Calendario de entrega (12/10/2026)
+Histórico: el plan del 12/10 quedó superado; la fecha de entrega ya no está confirmada.
+
 | Día | Foco | Entregable |
 |---|---|---|
 | Mar 13 | Rediseño visual del kiosco con los diseños nuevos y lista de verificación pendiente; si sobra tiempo, revisar diseños del KDS y Estado | Kiosco con el estilo nuevo verificado |
@@ -327,3 +391,10 @@ Los parámetros por venue (turnos, semáforo, meta, turno vencido, día operativ
 - Desplegado en GitHub Pages y probado en ADMIRA: funciona, pero con lentitud en identificación, envío del pedido y cambios de estatus del chef (entre 2 y 12 s por acción).
 - Causas identificadas: costo base de Apps Script (cerca de 2.4 s por llamada), múltiples accesos a hojas por acción, competencia por el candado entre escrituras y consultas periódicas, y reintentos ante el 404 intermitente de Google.
 - Decisión: dejar el backend actual como está para la demo y migrar a Supabase a partir del lunes 19/10. Estimado de 3.5 a 4 días. Se conserva el contrato JSON para no reescribir el frontend.
+
+### v2.0 (20/10/2026)
+- S11 cerrada: el backend corre en Supabase (Postgres y una Edge Function `api`) con el mismo contrato JSON; el frontend solo cambió `API_URL` y la CSP. Etapas 0 a 4 en la sección 10.
+- Los tres flujos (kiosco, cocina y Estado) probados de punta a punta y desplegados en ADMIRA. Tiempos: `crear_pedido` de 2–12 s a unos 1.3 s; consultas de 0.4 a 1 s.
+- Apps Script se conserva sin cambios como respaldo hasta pasada la presentación; después se archiva, no se borra.
+- Decisiones: CORS abierto mientras sea demo, anotado como pendiente para una implementación real; tokens nuevos de Supabase, que se regeneran antes de uso real; sin Realtime por ahora (consulta cada 5 s).
+- Pendiente: pantalla de inventario en el KDS (el backend de inventario, relleno y reabasto ya existe y está probado), detalles de diseño, cambios de fotos y dashboard.
