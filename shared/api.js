@@ -15,7 +15,8 @@ const VALIDADORES = {
   pausar_turno: d => esObjeto(d) && typeof d.turno_id === 'string' && typeof d.estado === 'string',
   reanudar_turno: d => esObjeto(d) && typeof d.turno_id === 'string' && typeof d.estado === 'string',
   cerrar_turno: d => esObjeto(d) && typeof d.turno_id === 'string' && typeof d.estado === 'string',
-  cambiar_estatus: d => esObjeto(d) && typeof d.pedido_id === 'string' && typeof d.estatus === 'string'
+  cambiar_estatus: d => esObjeto(d) && typeof d.pedido_id === 'string' && typeof d.estatus === 'string',
+  inventario: d => esObjeto(d) && Array.isArray(d.productos) && typeof d.hora_servidor === 'string'
 };
 let contexto = null;
 

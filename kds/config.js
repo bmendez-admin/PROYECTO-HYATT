@@ -37,3 +37,15 @@ export const LIMITE_ITEMS_DESPACHO = 6;
 export const CLAVE_CHEF = 'kds_chef_';
 
 export const MOTIVOS_CANCELACION = ['sin_ingredientes', 'pedido_duplicado', 'huesped_cancelo', 'otro'];
+
+export const SONDEO_INVENTARIO_MS = 20000;
+
+export const SONDEO_INVENTARIO_ABIERTO_MS = 8000;
+
+export const LIMITE_INVENTARIO_MS = 12000;
+
+export const CANTIDAD_MIN = 1;
+
+export const CANTIDAD_MAX = 200;
+
+export const ATAJOS_CANTIDAD = [5, 10, 20, 50];

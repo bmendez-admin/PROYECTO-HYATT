@@ -51,7 +51,7 @@ Versión 2.0 · 20/10/2026 · Regida por REQUISITOS_DE_PROMPT.md
 - Prioridad si hay que recortar: REABASTO y LOG se posponen primero.
 - Número de pedido secuencial por venue y por día operativo. `pedido_id` = `<venue>-<yyyymmdd>-<nnn>`.
 - El stock se descuenta al crear el pedido (INVENTARIO tipo `consumo`, responsable `pedido:<id>`) y se devuelve si se cancela (tipo `devolucion`, responsable `cancelacion:<id>`). Los rellenos se registran como tipo `relleno`, responsable `chef:<chef_id>`.
-- Datos demo: 3 venues (zona `America/Cancun`), menú solo para Bites (25 productos), 40 cuartos en 2 edificios de 4 pisos con 5 cuartos por piso (50 % ocupados, apellidos ficticios) y 6 chefs.
+- Datos demo: 3 venues (zona `America/Cancun`), menú solo para Bites (42 productos de la directiva, en 7 categorías), 40 cuartos en 2 edificios de 4 pisos con 5 cuartos por piso (50 % ocupados, apellidos ficticios) y 6 chefs.
 
 ### 4.2 Estatus y transiciones
 Estatus: `pendiente`, `en_preparacion`, `completo`, `recibido`, y `cancelado` (interno).
@@ -77,7 +77,7 @@ Reglas:
 
 ### 4.2b Inventario y reabasto
 - **Estado de stock:** `agotado` con stock 0 o menos, `bajo` con stock menor o igual al mínimo, `ok` en otro caso.
-- **Consulta (`inventario`):** lista los productos activos de la sede, ordenados por stock ascendente y luego por `orden`, con la fecha del último relleno y si hay una solicitud de reabasto pendiente. No exige turno.
+- **Consulta (`inventario`):** lista los productos activos de la sede, ordenados por stock ascendente y luego por `orden`, con la fecha del último relleno y si hay una solicitud de reabasto pendiente. No exige turno. Devuelve también `imagen` de cada producto y `hora_servidor`.
 - **Relleno (`registrar_relleno`):** exige chef con turno activo. Cantidad entera de 1 a 200. Idempotente por `request_id` (`mov_id` = `MOV-REL-<request_id>`): un reintento responde `duplicado: true` sin sumar otra vez, incluso si el chef pausó entre tanto. Escribe primero el movimiento y después el stock, para que una falla a medias deje el stock corto y nunca de más.
 - **Solicitud (`solicitar_reabasto`):** exige chef con turno activo. Cantidad entera de 1 a 200. Idempotente por `request_id` (`solicitud_id` = `REA-<request_id>`). Solo una solicitud `pendiente` por producto; otra se rechaza con `E_CONFLICT` y razón `solicitud_pendiente`, con el `solicitud_id` abierto. La atención (`atendido`) la hace el dashboard en S3c.
 
@@ -148,7 +148,7 @@ Respuesta: `{ok:true,data}` o `{ok:false,code[,data]}`. Códigos: E_VALIDATION, 
 - **Flujo:** Portada (ES/EN) → Identificación → Menú (con detalle del platillo) → Orden → Ticket → Portada.
 - **Pantalla de espera:** tras 30 s sin toques en la portada, un fundido lleva a una pantalla con el logo, los totales y la lista de los pedidos pendientes de salir (los pedidos en preparación y los pendientes de preparar, en dos columnas, cada tarjeta con su estado, bilingüe permanente). Si hay más de los que caben, la lista baja sola y repite. Un toque en cualquier parte regresa a la portada. Sin pedidos muestra un mensaje amable. Lee la acción `estado` con el rol `kiosco` cada 10 s y conserva la última lista si falla.
 - **Identificación:** el huésped elige edificio y habitación con teclado propio y solo confirma el nombre mostrado (sin escribirlo). Cuarto inexistente y desocupado dan el mismo mensaje, con bloqueo de 60 s tras 5 fallos. "No soy yo" vacía el carrito.
-- **Menú:** categorías y productos del catálogo real (hoy 7 categorías y 25 productos), con esqueleto de carga. Cada tarjeta abre un modal de detalle con foto y botón Ordenar. El producto agotado se muestra como tal y avisa en rojo al tocarlo. Fotos de diseño con respaldo (icono tenue) si faltan.
+- **Menú:** categorías y productos del catálogo real (hoy 7 categorías y 42 productos), con esqueleto de carga. Cada tarjeta abre un modal de detalle con foto y botón Ordenar. El producto agotado se muestra como tal y avisa en rojo al tocarlo. Fotos de diseño con respaldo (icono tenue) si faltan.
 - **Orden:** lista con foto, nombre, cantidad editable con teclado numérico (máximo 2 dígitos; 0 elimina) y botón para quitar la línea. Insignia con el total de unidades en el menú y la orden.
 - **Pedidos:** sin tope de pedidos activos por cuarto (todo incluido). Límites por pedido: 10 por producto, 20 artículos y 15 líneas; el kiosco avisa en rojo al llegar a cada uno.
 - **Envío:** Continuar muestra "Enviando…" y bloquea cantidades, quitar y volver. A los 15 s aparece un aviso de que sigue en proceso. El tiempo total máximo es de 60 s; después se muestra un error de red y se puede reintentar con el mismo `request_id` (liga huésped y carrito, así no se duplica el pedido). `E_STOCK` y `E_NOT_FOUND` recargan el catálogo y ajustan la orden (quitan o reducen líneas) con un aviso rojo que nombra los productos; si no es por stock, la habitación no se pudo validar y Continuar se bloquea. `E_RATE` pide esperar. `duplicado: true` se trata como éxito.
@@ -163,12 +163,13 @@ Respuesta: `{ok:true,data}` o `{ok:false,code[,data]}`. Códigos: E_VALIDATION, 
 - **Pantalla horizontal 1920×1080,** solo en español, una tablet por chef. Referencias de diseño en revisión por directiva: solo cambia la estética, no el flujo.
 - **Responsable de cocina:** 6 chefs en tarjetas (3 columnas × 2 filas) con avatar masculino o femenino. Los que tienen turno abierto en otra tablet aparecen bloqueados. Sin agregar ni eliminar personas.
 - **Ingreso:** código personal de 6 dígitos con teclado numérico, validado por el servidor (error genérico y bloqueo de 60 s tras 5 fallos). El código es de demostración, sin identificación real.
-- **Pantalla principal:** tres columnas. Fila de pedidos (pendientes, "Comenzar"), pedido activo (**uno solo por chef**, con fotos de los platillos, "Pedido listo" y "Cancelar pedido") y Despachados (completos, "Despachar" = recibido). Sin botón "+" ni panel de inventario en la interfaz.
+- **Pantalla principal:** tres columnas. Fila de pedidos (pendientes, "Comenzar"), pedido activo (**uno solo por chef**, con fotos de los platillos, "Pedido listo" y "Cancelar pedido") y Despachados (completos, "Despachar" = recibido). Botón INVENTARIO en el encabezado, con insignia de productos agotados o bajos.
 - **Pausas:** botón BREAK con dos tipos (Break corto y Hora de comida) y botón Finalizar jornada. Pausa y cierre bloqueados si el chef tiene un pedido en preparación.
 - **Cancelar:** modal con motivo de lista fija (Sin ingredientes, Pedido duplicado, Huésped canceló, Otro).
 - **Turnos:** máximo 2 por venue (activos y en pausa). Turnos vencidos (12 h) se cierran solos.
 - **Resiliencia:** tiempos con hora del servidor, banner y acciones deshabilitadas tras 30 s sin conexión, aviso de conflicto si otro chef ya tomó el pedido. Reintento seguro ante respuestas perdidas (`repetido: true` se trata como éxito). Semáforo de espera discreto y sonido simple de pedido nuevo. Consulta de `cola` cada 5 s.
-- **Fuera del KDS de la demo:** inventario, relleno y reabasto (el backend los conserva), "revertir" de 60 s si falta tiempo.
+- **Inventario (20/10/2026):** botón INVENTARIO que abre un panel sobre las columnas, sin salir de la sesión. Filtros por estado (Total, Agotados, Bajos, Disponibles) con contador y por categoría. Tarjetas de 4 por fila con foto, nombre, último relleno, stock contra mínimo y estado, ordenadas por urgencia. Cada tarjeta tiene **Reabasto** (pide a almacén; el stock no cambia; queda "Pendiente" hasta que se registre un relleno de ese producto) y **Relleno** (llegó mercancía; el stock sube de inmediato). Ambos abren un modal con cantidad de 1 a 200 (botones − y +, atajos +5, +10, +20, +50) y reintento seguro con el mismo `request_id`. Consulta cada 20 s con el panel cerrado y cada 8 s abierto. Se cierra solo al pausar, hacer break o finalizar. Los botones exigen turno activo.
+- **Fuera del KDS de la demo:** "revertir" de 60 s si falta tiempo.
 - **Pedidos de días anteriores:** resuelto. Se cierran solos a las 12 h (ver 4.2).
 
 ## 7. Estado de pedido
@@ -190,7 +191,7 @@ Respuesta: `{ok:true,data}` o `{ok:false,code[,data]}`. Códigos: E_VALIDATION, 
 - **Usuario:** encargado, en navegador de escritorio. Selector de venue (con "Todos") y de periodo (Hoy, Ayer, 7 días, personalizado).
 - **Paneles:** KPIs (totales, recibidos, cancelados, en curso, espera promedio del huésped y % dentro de meta de 10 min), en vivo, pedidos por hora, productos más pedidos, mezcla por categoría, chefs (completados, tiempo de preparación, horas de turno), inventario (stock contra mínimo y último relleno), reabasto, actividad reciente.
 - **Solo lectura, salvo `atender_reabasto`.** Sin datos personales en pantalla ni en el CSV. Consulta cada 30 s. Estados de carga, vacío y error, con el último dato y su hora.
-- **Stock inicial:** se carga en el Sheet, sin reinicio diario. Los rellenos se registran desde el KDS.
+- **Stock inicial:** se carga en el Sheet, sin reinicio diario. Los rellenos y reabastos se registran desde el KDS. El dashboard también debe poder registrarlos, sin turno de chef: requiere acciones nuevas en S3c, porque las actuales exigen un chef con turno activo.
 - **Backend:** se construye en S3c, justo antes de esta sección.
 
 ## 9. Parámetros (ajustables)
@@ -398,3 +399,10 @@ Histórico: el plan del 12/10 quedó superado; la fecha de entrega ya no está c
 - Apps Script se conserva sin cambios como respaldo hasta pasada la presentación; después se archiva, no se borra.
 - Decisiones: CORS abierto mientras sea demo, anotado como pendiente para una implementación real; tokens nuevos de Supabase, que se regeneran antes de uso real; sin Realtime por ahora (consulta cada 5 s).
 - Pendiente: pantalla de inventario en el KDS (el backend de inventario, relleno y reabasto ya existe y está probado), detalles de diseño, cambios de fotos y dashboard.
+
+### v2.1 (20/10/2026)
+- Menú de Bites reemplazado por los 42 productos de la directiva (7 categorías), con fotos por nombre de archivo en `imagen`. Ejecutado en Supabase con `09_menu_directiva.sql`; la semilla `02_semilla.sql` ya trae el mismo menú para instalaciones nuevas.
+- `api_inventario` ahora devuelve `imagen` (`10_inventario_imagen.sql`, ya aplicado).
+- Nueva vista de inventario en el KDS (relleno y reabasto desde la cocina), que revierte la decisión anterior de no tener inventario en el KDS. Diseño iterado con Bryan hasta quedar aprobado.
+- Pruebas: flujo de la vista en Chromium con la API simulada (apertura, filtros, relleno, reabasto, falla de red con reintento del mismo `request_id`, estado pendiente, conservación del scroll, cierre) sin errores en consola; semilla nueva verificada en una base limpia (42 productos, 7 categorías, 42 movimientos iniciales, `imagen` presente en `inventario`).
+- Pendiente: dashboard (PIN por ahora, con propuesta de acceso más robusto después), acciones de relleno y reabasto sin turno de chef, hora de la solicitud de reabasto ("hace N min") que requeriría un campo `hora_solicitud` en la respuesta, actualizar docs de diseño y regenerar tokens antes de uso real.

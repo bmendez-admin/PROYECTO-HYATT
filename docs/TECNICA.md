@@ -11,6 +11,7 @@ Actualizada al cierre de la sesión del 20/10/2026 (migración del backend a Sup
 ## 2. Estructura del repo
 supabase/ sql/ 01_esquema.sql · 02_semilla.sql · 03_etapa1.sql · 04_etapa2.sql
 05_reiniciar_demo.sql · 06_etapa3a.sql · 07_etapa3b.sql · 08_etapa3c.sql
+09_menu_directiva.sql · 10_inventario_imagen.sql
 functions/api/ index.ts
 backend/ (respaldo en Apps Script) ApiEstado.gs · ApiKds.gs · ApiKiosco.gs · config.gs · DatosDemo.gs
 Estatus.gs · Filas.gs · Inventario.gs · main.gs · pedidos.gs
@@ -22,18 +23,20 @@ kiosco/ kds/ estado/ dashboard/ shared/ assets/
 Los archivos de `supabase/` deben ser idénticos a lo que está pegado en el panel de Supabase (SQL Editor y editor de la Edge Function). Los `.gs` del repo deben ser idénticos a los del editor de Apps Script.
 
 ## 3. Archivos del backend en Supabase
-Los archivos SQL se ejecutan en orden en el SQL Editor. `01_esquema.sql` y `02_semilla.sql` se ejecutan una sola vez (crean las tablas y siembran los datos; repetirlos falla). Del `03` al `08` se pueden volver a ejecutar sin riesgo: reemplazan las funciones con `create or replace` y `06` recrea su índice.
+Los archivos SQL se ejecutan en orden en el SQL Editor. `01_esquema.sql` y `02_semilla.sql` se ejecutan una sola vez (crean las tablas y siembran los datos; repetirlos falla). Del `03` al `08` y el `10` se pueden volver a ejecutar sin riesgo: reemplazan las funciones con `create or replace` y `06` recrea su índice. El `09` es de una sola vez para una base ya sembrada: reinicia el demo y reemplaza el menú de Bites (la semilla nueva ya lo incluye, así que no se ejecuta en una instalación nueva).
 
 | Archivo | Contenido |
 |---|---|
 | `01_esquema.sql` | Extensión `pgcrypto`, las 13 tablas (`venues`, `productos`, `huespedes`, `chefs`, `pedidos`, `pedido_items`, `contadores_pedido`, `inventario_mov`, `reabasto`, `turnos`, `log`, `tokens`, `limites`), índices, RLS, revocación de permisos a `anon` y `authenticated`, y `generar_tokens()` |
-| `02_semilla.sql` | 3 venues, 25 productos de Bites, 40 huéspedes, 6 chefs (con hash bcrypt) y el movimiento `inicial` de cada producto |
+| `02_semilla.sql` | 3 venues, 42 productos de Bites (menú de la directiva), 40 huéspedes, 6 chefs (con hash bcrypt) y el movimiento `inicial` de cada producto |
 | `03_etapa1.sql` | `api_iso`, `api_log`, `api_autenticar`, `api_catalogo`, `api_validar_cuarto`, `api_estado` |
 | `04_etapa2.sql` | `api_dia_operativo`, `api_crear_pedido` |
 | `05_reiniciar_demo.sql` | `reiniciar_demo()` |
 | `06_etapa3a.sql` | Índice único de un turno abierto por chef, `api_conflicto`, `api_minutos_pausa`, `api_devolver_stock`, `api_cerrar_vencidos`, `api_verificar_codigo`, `api_cola`, `api_iniciar_turno`, `api_pausar_turno`, `api_reanudar_turno`, `api_cerrar_turno` |
 | `07_etapa3b.sql` | `api_conflicto_estatus`, `api_cambiar_estatus` |
 | `08_etapa3c.sql` | `api_inventario`, `api_registrar_relleno`, `api_solicitar_reabasto` |
+| `09_menu_directiva.sql` | Reinicia el demo, reemplaza los productos de Bites por los 42 de la directiva y recrea sus movimientos `inicial` |
+| `10_inventario_imagen.sql` | `api_inventario` con el campo `imagen` por producto |
 | `functions/api/index.ts` | Edge Function: lista blanca de acciones con sus roles, validación de entrada, autenticación y límite de frecuencia, registro de `E_AUTH` y `E_INTERNAL`, CORS y manejo de OPTIONS y de métodos distintos de POST |
 
 Todas las funciones SQL son `security definer`, con `search_path` fijo, y solo `service_role` tiene `execute`. Las tablas tienen RLS activo sin políticas.
@@ -229,7 +232,8 @@ Los pedidos y movimientos de prueba quedan en KIOSCO, KDS, PEDIDO_ITEMS, INVENTA
 ## 10. Pendiente
 - **Dashboard (S3c y S9) pospuesto** a después de la presentación.
 - **Hecho (20/10/2026):** migración a Supabase, despliegue en ADMIRA y pruebas de punta a punta de los tres flujos. Ejecutar `git grep` de tokens antes de cada push.
-- **Pantalla de inventario en el KDS:** el backend (`inventario`, `registrar_relleno`, `solicitar_reabasto`) ya existe y está probado, pero ninguna pantalla lo usa. Falta referencia visual y el punto de entrada en la cocina.
+- **Hecho (20/10/2026):** vista de inventario en el KDS. Pendiente de ella: hora de la solicitud de reabasto (campo `hora_solicitud`) y acciones de relleno y reabasto desde el dashboard sin turno de chef.
+- **Semilla:** `02_semilla.sql` ya trae los 42 productos; el menú cambió con `09` en el proyecto de ADMIRA.
 - **CORS:** limitarlo al dominio definitivo cuando haya una implementación real (hoy `*`).
 - **Tokens:** regenerarlos con `generar_tokens()` antes de un uso real o fuera de ADMIRA (las URLs de prueba salieron en capturas).
 - **Respaldo:** conservar el Apps Script hasta pasada la presentación; después archivarlo, no borrarlo.
@@ -308,6 +312,13 @@ Iconos de diseño en PNG: `assets/iconos/{agregar,avanzar,edificio,eliminar,habi
 - Transiciones: tomar, completar, recibir, cancelar y liberar; pausa corta o de comida. Conflictos: "Otro responsable ya tomó el pedido N.".
 - Iconos blancos aplicados con máscara CSS.
 
+## KDS, inventario (frontend, 20/10)
+- Archivos: `servicios/inventario.js` (consulta con suscriptores, estado por producto, orden por urgencia, categorías y cantidad sugerida de 2 × mínimo − stock), `servicios/reposicion.js` (relleno y reabasto con `request_id` propio), `componentes/panel-inventario.js`, `componentes/modal-cantidad.js` y `estilos/inventario.css`.
+- Consulta de `inventario` cada 20 s (`SONDEO_INVENTARIO_MS`) con el panel cerrado, para la insignia del botón, y cada 8 s abierto (`SONDEO_INVENTARIO_ABIERTO_MS`). Falla tras 12 s sin éxito (`LIMITE_INVENTARIO_MS`). El límite del KDS es de 180 por minuto.
+- El `request_id` del modal se conserva entre reintentos; cambia solo al abrir otro modal. `repetido` o `duplicado` se trata como éxito. Conflictos: `solicitud_pendiente` y `sin_turno_activo` muestran avisos propios.
+- Repintado por firma, con el scroll de la lista conservado. Estilos solo con las variables del sistema (magenta, azul, navy y grises); las fotos salen de `assets/productos/<imagen>`.
+- Textos nuevos en `textos.js` (`inventario_*`, `estado_*`, `cantidad_*`, `aviso_*`, `hace_*`). El filtro general se llama `inventario_total` ("Total").
+
 ## Estado (frontend)
 - Carpeta `estado/`, rol `estado`, lienzo fijo de 1920×1080, solo horizontal. URL con `venue` y `token` por parámetros; el token no se guarda en ningún archivo.
 - `servicios/consulta.js` consulta `estado` cada 5 s (límite de 12 s). `servicios/tablero.js` guarda en memoria `saliendo` (números que dejan En proceso sin llegar a Listo, se desvanecen 10 s conservando su lugar) y `listoVisto` (nuevos en Listo, resaltados 8 s; la primera carga no resalta).
@@ -337,4 +348,4 @@ Iconos de diseño en PNG: `assets/iconos/{agregar,avanzar,edificio,eliminar,habi
 - Código del chef: en Supabase se guarda con hash bcrypt y se compara en `api_verificar_codigo`; el bloqueo (`chef_bloqueo_<venue>_<chef>`, 5 fallos por 60 s) vive en la tabla `limites`. En el respaldo de Apps Script el código está en texto claro en la hoja CHEFS (demo, sin identificación real) y el bloqueo en CacheService (`Turnos.gs`).
 - `TURNOS.tipo_pausa` se escribe al pausar y se limpia al reanudar, cerrar o vencer el turno.
 - `cola` junta los items con la hoja DB para entregar `imagen`; las pruebas del backend cubren código, bloqueo, tipos de pausa, imagen y migración de encabezados.
-- Reglas de pantalla ya acordadas: un pedido activo por chef, sin inventario ni botón "+" en el KDS.
+- Reglas de pantalla ya acordadas: un pedido activo por chef. El inventario vive en un panel propio (ver KDS, inventario).

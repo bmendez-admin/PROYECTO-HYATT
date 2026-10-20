@@ -1,6 +1,8 @@
+import { nuevoRequestId } from '../../shared/api.js';
 import { el } from '../../shared/dom.js';
 import { t } from '../../shared/i18n.js';
 import { construirEncabezadoPrincipal } from '../componentes/encabezado-principal.js';
+import { construirModalCantidad } from '../componentes/modal-cantidad.js';
 import {
   construirModalCancelar,
   construirModalFinalizada,
@@ -9,9 +11,10 @@ import {
   construirModalPausaSelector
 } from '../componentes/modales.js';
 import { construirPanelActivo } from '../componentes/panel-activo.js';
+import { construirPanelInventario } from '../componentes/panel-inventario.js';
 import { construirTarjetaDespacho } from '../componentes/tarjeta-despacho.js';
 import { construirTarjetaFila } from '../componentes/tarjeta-fila.js';
-import { DURACION_AVISO_MS, SIN_CONEXION_MS } from '../config.js';
+import { CANTIDAD_MAX, CANTIDAD_MIN, DURACION_AVISO_MS, SIN_CONEXION_MS } from '../config.js';
 import { cerrarSesionChef, sesion } from '../estado.js';
 import { ir, pantallaActual } from '../navegacion.js';
 import {
@@ -23,7 +26,20 @@ import {
   refrescarCola,
   suscribirCola
 } from '../servicios/cola.js';
+import {
+  ahoraInventario,
+  cantidadSugerida,
+  detenerSondeoInventario,
+  errorInventario,
+  fijarRitmoInventario,
+  inventarioActual,
+  iniciarSondeoInventario,
+  refrescarInventario,
+  resumenInventario,
+  suscribirInventario
+} from '../servicios/inventario.js';
 import { cambiarEstatus, claveErrorEstatus, esConflictoDeEstado } from '../servicios/pedidos.js';
+import { claveErrorReposicion, registrarRelleno, reposicionResuelta, solicitarReabasto } from '../servicios/reposicion.js';
 import { minutosEspera, nivelEspera } from '../servicios/semaforo.js';
 import { sonarPedidoNuevo } from '../servicios/sonido.js';
 import { claveErrorGeneral } from '../servicios/solicitudes.js';
@@ -37,11 +53,17 @@ const ui = {
   sincronizado: false,
   esperaFresca: false,
   vistos: null,
+  inventarioAbierto: false,
+  filtroEstado: '',
+  filtroCategoria: '',
+  cantidad: null,
   firmaTablero: '',
-  firmaModal: ''
+  firmaModal: '',
+  firmaInventario: ''
 };
 let refs = null;
 let desuscribir = null;
+let desuscribirInventario = null;
 let temporizadorAviso = null;
 
 function reiniciarUi() {
@@ -52,14 +74,22 @@ function reiniciarUi() {
   ui.sincronizado = false;
   ui.esperaFresca = false;
   ui.vistos = null;
+  ui.inventarioAbierto = false;
+  ui.filtroEstado = '';
+  ui.filtroCategoria = '';
+  ui.cantidad = null;
   ui.firmaTablero = '';
   ui.firmaModal = '';
+  ui.firmaInventario = '';
 }
 
 function salir() {
   detenerSondeo();
+  detenerSondeoInventario();
   if (desuscribir) desuscribir();
   desuscribir = null;
+  if (desuscribirInventario) desuscribirInventario();
+  desuscribirInventario = null;
   clearTimeout(temporizadorAviso);
 }
 
@@ -113,9 +143,19 @@ function detectarNuevos(cola) {
   ui.vistos = ids;
 }
 
+function ocultarInventario() {
+  ui.inventarioAbierto = false;
+  ui.filtroEstado = '';
+  ui.filtroCategoria = '';
+  fijarRitmoInventario(false);
+}
+
 function terminarJornada() {
   detenerSondeo();
+  detenerSondeoInventario();
   cerrarSesionChef();
+  ocultarInventario();
+  ui.cantidad = null;
   ui.modal = 'finalizada';
 }
 
@@ -126,6 +166,8 @@ function reconciliar(datos) {
     return;
   }
   if (datos.yo.turno === 'pausa') {
+    ocultarInventario();
+    ui.cantidad = null;
     ui.modal = 'pausa';
     ui.pausaTipo = datos.yo.pausa_tipo === 'comida' ? 'comida' : 'corto';
     return;
@@ -138,6 +180,11 @@ function pintarEncabezado() {
   refs.banner.hidden = !sinConexion();
   refs.botonPausa.disabled = bloqueado;
   refs.botonFinalizar.disabled = bloqueado;
+  refs.botonInventario.disabled = bloqueado;
+  const alertas = resumenInventario(inventarioActual());
+  refs.insignia.hidden = alertas.alerta === 0;
+  refs.insignia.textContent = String(alertas.alerta);
+  refs.insignia.classList.toggle('principal__insignia--rojo', alertas.agotado > 0);
 }
 
 function vistaDe(pedido, parametros) {
@@ -199,8 +246,73 @@ function pintarTablero(cola, datos) {
   );
 }
 
+function productoDe(productoId) {
+  const productos = inventarioActual();
+  return productos ? productos.find(producto => producto.producto_id === productoId) || null : null;
+}
+
+function pintarInventario(datos) {
+  const abierto = ui.inventarioAbierto && ui.modal !== 'finalizada';
+  refs.inventarioAnfitrion.hidden = !abierto;
+  if (!abierto) {
+    ui.firmaInventario = '';
+    refs.inventarioAnfitrion.replaceChildren();
+    return;
+  }
+  const productos = inventarioActual();
+  const ahora = ahoraInventario();
+  const firma = JSON.stringify([
+    bloqueo(),
+    ui.filtroEstado,
+    ui.filtroCategoria,
+    datos.pendientes.length,
+    errorInventario(),
+    Math.floor(ahora / 60000),
+    productos
+      ? productos.map(p => [p.producto_id, p.stock_actual, p.stock_minimo, p.estado, p.reabasto_pendiente, p.ultimo_relleno])
+      : null
+  ]);
+  if (firma === ui.firmaInventario) return;
+  ui.firmaInventario = firma;
+  const anterior = refs.inventarioAnfitrion.querySelector('.inventario__lista');
+  const desplazamiento = anterior ? anterior.scrollTop : 0;
+  refs.inventarioAnfitrion.replaceChildren(
+    construirPanelInventario({
+      productos,
+      error: errorInventario(),
+      filtroEstado: ui.filtroEstado,
+      filtroCategoria: ui.filtroCategoria,
+      pedidosEnFila: datos.pendientes.length,
+      deshabilitado: bloqueo(),
+      ahora,
+      alFiltrarEstado: filtrarEstado,
+      alFiltrarCategoria: filtrarCategoria,
+      alRellenar: producto => abrirCantidad('relleno', producto),
+      alReabastecer: producto => abrirCantidad('reabasto', producto),
+      alReintentar: refrescarInventario,
+      alCerrar: cerrarInventario
+    })
+  );
+  const nueva = refs.inventarioAnfitrion.querySelector('.inventario__lista');
+  if (nueva) nueva.scrollTop = desplazamiento;
+}
+
 function construirModalActual(datos) {
   const deshabilitado = bloqueo();
+  if (ui.modal === 'cantidad' && ui.cantidad) {
+    const producto = productoDe(ui.cantidad.productoId);
+    if (producto) {
+      return construirModalCantidad({
+        tipo: ui.cantidad.tipo,
+        producto,
+        valor: ui.cantidad.valor,
+        deshabilitado,
+        alCambiar: cambiarCantidad,
+        alConfirmar: confirmarCantidad,
+        alCancelar: cerrarModal
+      });
+    }
+  }
   if (ui.modal === 'selector') {
     return construirModalPausaSelector({ deshabilitado, alElegir: elegirPausa, alCerrar: cerrarModal });
   }
@@ -230,7 +342,15 @@ function construirModalActual(datos) {
 }
 
 function pintarModal(datos) {
-  const firma = [ui.modal, ui.pausaTipo, ui.motivo, bloqueo(), datos.activo ? datos.activo.pedido_id : ''].join('|');
+  const producto = ui.cantidad ? productoDe(ui.cantidad.productoId) : null;
+  const firma = [
+    ui.modal,
+    ui.pausaTipo,
+    ui.motivo,
+    bloqueo(),
+    datos.activo ? datos.activo.pedido_id : '',
+    ui.cantidad ? [ui.cantidad.tipo, ui.cantidad.productoId, ui.cantidad.valor, producto ? producto.stock_actual : ''] : ''
+  ].join('|');
   if (firma === ui.firmaModal) return;
   ui.firmaModal = firma;
   const nodo = construirModalActual(datos);
@@ -250,8 +370,13 @@ function pintar() {
     ui.modal = '';
     ui.motivo = '';
   }
+  if (ui.modal === 'cantidad' && inventarioActual() && (!ui.cantidad || !productoDe(ui.cantidad.productoId))) {
+    ui.modal = '';
+    ui.cantidad = null;
+  }
   pintarEncabezado();
   pintarTablero(cola, datos);
+  pintarInventario(datos);
   pintarModal(datos);
 }
 
@@ -305,6 +430,83 @@ function cerrarModal() {
   if (ui.enviando) return;
   ui.modal = '';
   ui.motivo = '';
+  ui.cantidad = null;
+  pintar();
+}
+
+function abrirInventario() {
+  ui.inventarioAbierto = true;
+  fijarRitmoInventario(true);
+}
+
+function cerrarInventario() {
+  ocultarInventario();
+  pintar();
+}
+
+function alternarInventario() {
+  if (bloqueo()) return;
+  if (ui.inventarioAbierto) {
+    cerrarInventario();
+    return;
+  }
+  abrirInventario();
+  pintar();
+}
+
+function filtrarEstado(estado) {
+  ui.filtroEstado = estado;
+  pintar();
+}
+
+function filtrarCategoria(categoria) {
+  ui.filtroCategoria = categoria;
+  pintar();
+}
+
+function abrirCantidad(tipo, producto) {
+  if (bloqueo()) return;
+  ui.cantidad = {
+    tipo,
+    productoId: producto.producto_id,
+    valor: cantidadSugerida(producto, CANTIDAD_MIN, CANTIDAD_MAX),
+    requestId: nuevoRequestId()
+  };
+  ui.modal = 'cantidad';
+  pintar();
+}
+
+function cambiarCantidad(valor) {
+  if (!ui.cantidad || ui.enviando) return;
+  ui.cantidad.valor = Math.max(CANTIDAD_MIN, Math.min(CANTIDAD_MAX, valor));
+  pintar();
+}
+
+async function confirmarCantidad() {
+  const solicitud = ui.cantidad;
+  if (!solicitud) return;
+  const producto = productoDe(solicitud.productoId);
+  const operacion = solicitud.tipo === 'relleno' ? registrarRelleno : solicitarReabasto;
+  const resultado = await ejecutar(() =>
+    operacion(refs.chef.chef_id, solicitud.productoId, solicitud.valor, solicitud.requestId)
+  );
+  if (!resultado) return;
+  if (resultado.ok) {
+    ui.modal = '';
+    ui.cantidad = null;
+    const nombre = producto ? producto.nombre_es : '';
+    const cantidad = Number(resultado.datos.cantidad);
+    const prefijo = solicitud.tipo === 'relleno' ? t('aviso_relleno_ok') + ' +' : t('aviso_reabasto_ok') + ' ';
+    mostrarAviso(prefijo + cantidad + ' ' + nombre);
+    await refrescarInventario();
+  } else {
+    if (reposicionResuelta(resultado)) {
+      ui.modal = '';
+      ui.cantidad = null;
+      refrescarInventario();
+    }
+    mostrarAviso(t(claveErrorReposicion(resultado)));
+  }
   pintar();
 }
 
@@ -338,6 +540,7 @@ function pedirPausa() {
     mostrarAviso(t('aviso_pedido_activo'));
     return;
   }
+  ocultarInventario();
   ui.modal = 'selector';
   pintar();
 }
@@ -372,6 +575,7 @@ function pedirFinalizar() {
     mostrarAviso(t('aviso_pedido_activo'));
     return;
   }
+  ocultarInventario();
   ui.modal = 'finalizar';
   pintar();
 }
@@ -412,19 +616,27 @@ export function construirPrincipal() {
   salir();
   reiniciarUi();
 
-  const encabezado = construirEncabezadoPrincipal({ chef, alPausar: pedirPausa, alFinalizar: pedirFinalizar });
+  const encabezado = construirEncabezadoPrincipal({
+    chef,
+    alPausar: pedirPausa,
+    alFinalizar: pedirFinalizar,
+    alInventario: alternarInventario
+  });
   const contadorFila = el('span', { clase: 'columna__contador', texto: '0' });
   const contadorDespacho = el('span', { clase: 'columna__contador', texto: '0' });
   const listaFila = el('div', { clase: 'columna__lista' });
   const listaDespacho = el('div', { clase: 'columna__lista' });
   const centro = el('div', { clase: 'columna__centro' });
   const aviso = el('p', { clase: 'principal__aviso', role: 'status', hidden: true });
+  const inventarioAnfitrion = el('div', { clase: 'inventario-anfitrion', hidden: true });
   const modalAnfitrion = el('div', { clase: 'modal-anfitrion' });
 
   refs = {
     chef,
     botonPausa: encabezado.botonPausa,
     botonFinalizar: encabezado.botonFinalizar,
+    botonInventario: encabezado.botonInventario,
+    insignia: encabezado.insignia,
     banner: encabezado.banner,
     contadorFila,
     contadorDespacho,
@@ -432,6 +644,7 @@ export function construirPrincipal() {
     listaDespacho,
     centro,
     aviso,
+    inventarioAnfitrion,
     modalAnfitrion
   };
 
@@ -446,13 +659,16 @@ export function construirPrincipal() {
       el('section', { clase: 'columna columna--centro' }, centro),
       construirColumna('columna--despacho', t('columna_despachados'), contadorDespacho, listaDespacho)
     ),
+    inventarioAnfitrion,
     modalAnfitrion,
     aviso
   );
 
   desuscribir = suscribirCola(pintar);
+  desuscribirInventario = suscribirInventario(pintar);
   queueMicrotask(async () => {
     iniciarSondeo();
+    iniciarSondeoInventario();
     pintar();
     await refrescarCola();
     ui.sincronizado = errorCola() === '';

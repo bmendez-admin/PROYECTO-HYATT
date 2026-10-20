@@ -2,7 +2,7 @@ import { el, imagen } from '../../shared/dom.js';
 import { t } from '../../shared/i18n.js';
 import { RUTAS } from '../config.js';
 
-export function construirEncabezadoPrincipal({ chef, alPausar, alFinalizar }) {
+export function construirEncabezadoPrincipal({ chef, alPausar, alFinalizar, alInventario }) {
   const iconos = RUTAS.iconosChef[chef.avatar === 'm' ? 'm' : 'h'];
   const botonPausa = el(
     'button',
@@ -15,6 +15,13 @@ export function construirEncabezadoPrincipal({ chef, alPausar, alFinalizar }) {
     { type: 'button', clase: 'accion accion--oscura principal__finalizar', onclick: alFinalizar },
     el('span', { clase: 'icono icono--gorro', 'aria-hidden': 'true' }),
     el('span', { texto: t('principal_finalizar') })
+  );
+  const insignia = el('span', { clase: 'principal__insignia', 'aria-hidden': 'true', hidden: true });
+  const botonInventario = el(
+    'button',
+    { type: 'button', clase: 'accion accion--contorno principal__inventario', onclick: alInventario },
+    el('span', { texto: t('inventario_boton') }),
+    insignia
   );
   const banner = el('p', { clase: 'principal__sin-conexion', role: 'status', texto: t('sin_conexion'), hidden: true });
   const nodo = el(
@@ -31,8 +38,9 @@ export function construirEncabezadoPrincipal({ chef, alPausar, alFinalizar }) {
     ),
     botonPausa,
     botonFinalizar,
+    botonInventario,
     imagen(RUTAS.logoColor, { clase: 'principal__logo', contener: true, alt: 'Breathless Resorts & Spas' }),
     banner
   );
-  return { nodo, botonPausa, botonFinalizar, banner };
+  return { nodo, botonPausa, botonFinalizar, botonInventario, insignia, banner };
 }
